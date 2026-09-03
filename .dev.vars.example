@@ -1,0 +1,6 @@
+REPLICATE_API_TOKEN=your_replicate_api_token_here
+VENICE_API_KEY=your_venice_api_key_here
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+# MUAPI_API_KEY is not used by this Worker (kept in .env for local scripts only)
+# MUAPI_API_KEY=your_muapi_api_key_here

@@ -1,0 +1,13 @@
+{
+  "name": "replicate-prompt-orchestrator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "cf:types": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "^3.60.0"
+  }
+}
