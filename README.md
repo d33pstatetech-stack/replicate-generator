@@ -19,11 +19,29 @@ Orchestrate generative AI prompts on **Replicate.com** — schema-driven, like `
 
 ```
 replicate-prompt-orchestrator/
-  index.html            # <-- the SPA (single file)
-  .env                  # API keys (gitignored) — copied from muapi-prompt-generator
+  index.html            # <-- the SPA source (synced to public/ for deploys)
+  public/index.html     # what wrangler / Docker actually serve
+  src/worker.js         # Cloudflare Worker: enhancer + Replicate/HF proxies
+  wrangler.toml         # Worker config (assets: public/)
+  Dockerfile            # static nginx image (BYOK, no secrets baked in)
+  start-server.sh       # Linux/macOS: python3 -m http.server 8000
+  START_SERVER.bat      # Windows equivalent
+  .env / .dev.vars      # API keys (gitignored) — see .dev.vars.example
   replicate_test.py     # stdlib smoke test (also works with `pip install replicate`)
   INSTALL_NOTES.md      # python vs cog vs direct fetch evaluation
 ```
+
+## Run with Docker (Linux / Windows / macOS)
+
+```bash
+docker build -t replicate-orchestrator .
+docker run --rm -p 8000:80 replicate-orchestrator
+# Open http://localhost:8000 — paste tokens in the browser (BYOK)
+```
+
+The image contains only `public/` (no `.env`, keys, or source). For the
+full backend (hidden-token `/api/*` proxy), deploy with `wrangler deploy`
+instead — the SPA auto-detects the proxy and falls back to direct calls.
 
 ## API keys
 

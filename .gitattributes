@@ -1,0 +1,4 @@
+# Keep shell scripts LF-only so the shebang works on Linux/macOS
+*.sh text eol=lf
+# Keep batch files CRLF for Windows
+*.bat text eol=crlf
