@@ -1,1859 +1,432 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Replicate Prompt Orchestrator</title>
-<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" rel="stylesheet">
-<style>
-:root{--bg:#09090b;--panel:#111113;--border:#222;--muted:#6b7280;--accent:#7c3aed;}
-body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#070709; color:#e5e7eb}
-.header{background:rgba(17,17,19,0.9); backdrop-filter: blur(8px); border-bottom:1px solid #1f1f23; position:sticky; top:0; z-index:40}
-.logo-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#ec4899);display:grid;place-items:center;color:white;font-size:14px}
-.gradient-text{background:linear-gradient(90deg,#a78bfa,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.cat-tab{padding:7px 14px;border-radius:999px;font-size:12px;border:1px solid #27272a;background:#111113;color:#a1a1aa;cursor:pointer;white-space:nowrap}
-.cat-tab.active{background:#7c3aed;border-color:#7c3aed;color:white}
-.panel{background:#111113;border:1px solid #1f1f23;border-radius:12px;padding:16px}
-.panel-title{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#a1a1aa;font-weight:700;display:flex;gap:8px;align-items:center;margin-bottom:12px}
-.model-search-box{position:relative;display:flex;align-items:center;background:#09090b;border:1px solid #27272a;border-radius:8px;padding:8px 10px}
-.model-search-box:focus-within{border-color:#7c3aed}
-.model-search-input{flex:1;background:transparent;outline:none;font-size:13px;color:#e5e7eb}
-.search-icon{color:#52525b;margin-right:8px;font-size:12px}
-.model-count-badge{font-size:10px;background:#27272a;color:#a1a1aa;padding:2px 6px;border-radius:999px}
-.model-dropdown{position:absolute;left:0;right:0;top:calc(100% + 6px);max-height:360px;overflow:auto;background:#111113;border:1px solid #27272a;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.6);z-index:30}
-.model-dropdown.hidden{display:none}
-.model-dropdown-header{padding:8px 12px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;background:#18181b;position:sticky;top:0}
-.model-dropdown-item{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid #1a1a1e;color:#d4d4d8}
-.model-dropdown-item:hover{background:#1a1a1e}
-.model-dropdown-item.selected{background:#2a1a4a;color:#ddd6fe}
-.cost-tag{font-size:10px;background:#27272a;color:#a1a1aa;padding:2px 6px;border-radius:6px;font-weight:600}
-.model-info{display:flex;align-items:center;gap:8px;margin-top:8px}
-.model-info.hidden{display:none}
-.badge{font-size:10px;padding:3px 8px;border-radius:999px;background:#27272a;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.06em}
-.input, .select-input{width:100%;background:#09090b;border:1px solid #27272a;border-radius:8px;padding:8px 10px;font-size:13px;color:#e5e7eb;outline:none}
-.input:focus, .select-input:focus{border-color:#7c3aed}
-.prompt-textarea{width:100%;min-height:130px;background:#09090b;border:1px solid #27272a;border-radius:10px;padding:12px;font-size:13px;color:#e5e7eb;outline:none;resize:vertical}
-.prompt-textarea:focus{border-color:#7c3aed}
-.generate-btn{width:100%;padding:14px;border-radius:12px;background:linear-gradient(90deg,#7c3aed,#ec4899);color:white;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .2s}
-.generate-btn:disabled{opacity:0.45;cursor:not-allowed}
-.header-btn{width:32px;height:32px;border-radius:8px;background:#18181b;border:1px solid #27272a;color:#a1a1aa;display:grid;place-items:center;cursor:pointer}
-.header-btn:hover{border-color:#3f3f46;color:#e5e7eb}
-.icon-btn{width:28px;height:28px;border-radius:7px;background:#18181b;border:1px solid #27272a;color:#a1a1aa;display:grid;place-items:center;cursor:pointer;font-size:12px}
-.icon-btn:hover{border-color:#3f3f46;color:#e5e7eb}
-.btn-primary-sm{background:#7c3aed;color:white;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;border:none}
-.btn-secondary{background:#18181b;border:1px solid #27272a;color:#a1a1aa;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer}
-.kbd{background:#27272a;border:1px solid #3f3f46;border-bottom-width:2px;border-radius:4px;padding:1px 5px;font-size:10px;color:#a1a1aa}
-.param-group{padding:10px;background:#0f0f10;border:1px solid #1a1a1e;border-radius:10px}
-.param-label{font-size:12px;font-weight:600;color:#d4d4d8;display:flex;align-items:center;gap:8px;margin-bottom:6px;text-transform:capitalize}
-.param-required{font-size:9px;background:#7c3aed;color:white;padding:1px 5px;border-radius:999px;text-transform:uppercase;letter-spacing:0.04em}
-.param-desc{font-size:11px;color:#71717a;line-height:1.4;margin-top:6px}
-.param-dep-note{font-size:10px;color:#a16207;background:#422006;padding:3px 6px;border-radius:6px;margin-top:6px}
-.range-val{font-family:ui-monospace,monospace;font-size:11px;background:#18181b;border:1px solid #27272a;padding:4px 7px;border-radius:6px;min-width:36px;text-align:center}
-.param-range-row{display:flex;gap:8px;align-items:center}
-.param-range-row input[type=range]{flex:1;accent-color:#7c3aed}
-.payload-preview{max-height:260px;overflow:auto;background:#09090b;border:1px solid #1f1f23;border-radius:10px;padding:12px;font-family:ui-monospace,monospace;font-size:11px;color:#a1a1aa;white-space:pre-wrap;word-break:break-all}
-.cost-bar{display:flex;align-items:center;gap:8px;background:#18181b;border:1px solid #27272a;border-radius:8px;padding:8px 10px;font-size:12px;color:#a1a1aa}
-.cost-bar.hidden{display:none}
-.progress-wrap{height:4px;background:#1f1f23;border-radius:999px;overflow:hidden;margin-top:10px}
-.progress-bar{height:100%;background:linear-gradient(90deg,#7c3aed,#ec4899);transition:width .4s;width:0%}
-.spinner{width:16px;height:16px;border:2px solid #27272a;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.output-content img, .output-content video{max-width:100%;border-radius:12px;display:block}
-.output-meta{display:flex;gap:12px;margin-top:10px;font-size:11px;color:#71717a}
-.history-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.history-thumb{aspect-ratio:1;background:#09090b;border:1px solid #1f1f23;border-radius:8px;overflow:hidden;position:relative;cursor:pointer}
-.history-thumb img{width:100%;height:100%;object-fit:cover}
-.history-thumb .overlay{position:absolute;inset:0;background:rgba(0,0,0,0.0);display:grid;place-items:center;color:white;opacity:0;transition:.2s}
-.history-thumb:hover .overlay{opacity:1;background:rgba(0,0,0,0.35)}
-.tips-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
-.tips-list li{font-size:11px;color:#71717a;display:flex;gap:8px;align-items:flex-start}
-.tips-list li i{color:#22c55e;margin-top:2px;font-size:10px}
-.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60}
-.modal.hidden{display:none}
-.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px)}
-.modal-content{position:relative;background:#111113;border:1px solid #27272a;border-radius:16px;padding:20px;width:min(560px,92vw);max-height:85vh;overflow:auto}
-.drop-zone{border:1.5px dashed #27272a;border-radius:12px;padding:28px 16px;text-align:center;background:#09090b}
-.drop-zone.dragover{border-color:#7c3aed;background:#1a1033}
-.upload-btn{display:inline-flex;align-items:center;gap:6px;background:#27272a;color:#e5e7eb;padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer}
-.image-upload-zone{border:1px dashed #27272a;border-radius:10px;padding:14px;text-align:center;color:#71717a;background:#09090b;cursor:pointer}
-.image-upload-zone.has-image{border-style:solid;padding:0;overflow:hidden}
-.image-upload-zone.dragover{border-color:#7c3aed}
-.upload-preview{position:relative}
-.upload-preview img{width:100%;max-height:160px;object-fit:cover;display:block}
-.remove-btn{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.7);color:white;border:none;display:grid;place-items:center;cursor:pointer}
-.url-input-row{display:flex;gap:6px;margin-top:8px}
-.url-input-row input{flex:1;background:#09090b;border:1px solid #27272a;border-radius:8px;padding:7px 9px;font-size:11px;color:#e5e7eb;outline:none}
-.cond-disabled{opacity:0.45;pointer-events:none;position:relative}
-.cond-disabled::after{content:attr(data-why);position:absolute;left:8px;bottom:-6px;font-size:9px;background:#422006;color:#facc15;padding:2px 6px;border-radius:999px;white-space:nowrap}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Replicate Prompt Orchestrator</title>
+  <meta name="description" content="Responsive, schema-driven Replicate generator for image, video, audio, and prompt enhancement.">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="./app.css">
 </head>
 <body>
-<header class="header">
-  <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
-    <div class="flex items-center gap-3">
-      <div class="logo-icon"><i class="fas fa-cubes"></i></div>
-      <div>
-        <h1 class="text-[15px] font-bold leading-none gradient-text">Replicate Prompt Orchestrator</h1>
-        <p class="text-[11px] text-zinc-500 mt-0.5"><span id="headerModelCount">—</span> models &middot; Image &middot; Video &middot; Audio &middot; <span id="headerHint" class="text-zinc-600">schema-driven params &bull; Prefer: wait + poll</span></p>
-      </div>
-    </div>
-    <div class="flex items-center gap-2">
-      <div class="hidden sm:flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5">
-        <i class="fas fa-key text-zinc-500 text-[11px]"></i>
-        <input id="tokenInput" type="password" placeholder="r8_..." class="bg-transparent outline-none text-[12px] w-[220px] text-zinc-200 placeholder:text-zinc-600">
-        <button id="btnSaveToken" class="text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded">Save</button>
-        <button id="btnTestToken" class="text-[11px] bg-violet-600 hover:bg-violet-500 text-white px-2 py-1 rounded">Test</button>
-      </div>
-      <button id="btnAddModel" class="header-btn" title="Add custom model"><i class="fas fa-plus"></i></button>
-      <button id="btnSettings" class="header-btn" title="LLM Settings (Venice/OpenRouter for enhancer)"><i class="fas fa-cog"></i></button>
-      <button id="btnSavedPrompts" class="header-btn" title="Saved"><i class="fas fa-bookmark"></i></button>
-      <button id="btnHistoryClear" class="header-btn" title="Clear history"><i class="fas fa-trash"></i></button>
-      <span id="connectionDot" class="w-2 h-2 rounded-full bg-zinc-600" title="API not tested"></span>
-    </div>
-  </div>
-  <div class="sm:hidden px-4 pb-3">
-    <div class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-2">
-      <i class="fas fa-key text-zinc-500 text-xs"></i>
-      <input id="tokenInputMobile" type="password" placeholder="REPLICATE_API_TOKEN" class="bg-transparent outline-none text-xs flex-1 text-zinc-200">
-      <button id="btnSaveTokenMobile" class="text-xs bg-violet-600 text-white px-3 py-1 rounded">Save</button>
-    </div>
-  </div>
-</header>
+  <a class="skip-link" href="#mainContent">Skip to main content</a>
 
-<div id="fileProtoWarning" class="hidden max-w-[1600px] mx-auto mt-4 mx-4 sm:mx-6 bg-amber-950/60 border border-amber-800 rounded-lg px-4 py-3 text-sm text-amber-200">
-  <div class="flex items-start justify-between gap-3">
-    <div class="font-semibold"><i class="fas fa-exclamation-triangle mr-1"></i> Opened as <code id="protoLabel">file://</code> — Replicate will block requests (CORS <code>Origin: null</code>)</div>
-    <button id="btnDismissFileWarning" class="text-amber-300 hover:text-amber-100 text-xs border border-amber-800 rounded px-2 py-1">Dismiss</button>
-  </div>
-  <div class="mt-1 text-amber-200/80">Browsers block <code>file:// → https://api.replicate.com</code>. Serve the folder over HTTP instead. In this folder run one of:</div>
-  <div class="mt-2 flex flex-wrap gap-2">
-    <code class="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs">python -m http.server 8000</code>
-    <code class="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs">npx serve .</code>
-    <code class="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs">php -S localhost:8000</code>
-  </div>
-  <div class="mt-2 text-xs text-amber-200/70">Then open <code>http://localhost:8000</code> — your token is still in <code>localStorage</code>. Or click <button id="btnCopyServeCmd" class="underline">copy command</button>.</div>
-</div>
-<div id="httpOkBanner" class="hidden max-w-[1600px] mx-auto mt-4 mx-4 sm:mx-6 bg-emerald-950/40 border border-emerald-800 rounded-lg px-4 py-2 text-xs text-emerald-300 flex items-center gap-2">
-  <i class="fas fa-check-circle"></i> Serving from <code id="originLabel"></code> — CORS will work. If you still get NetworkError, press <kbd class="kbd">Ctrl</kbd>+<kbd class="kbd">F5</kbd> for hard refresh, then press Test.
-</div>
-<main class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
-  <div class="flex gap-2 mb-5 overflow-x-auto pb-1">
-    <button class="cat-tab active" data-group="all"><i class="fas fa-th mr-1.5"></i>All</button>
-    <button class="cat-tab" data-group="image"><i class="fas fa-image mr-1.5"></i>Image</button>
-    <button class="cat-tab" data-group="video"><i class="fas fa-video mr-1.5"></i>Video</button>
-    <button class="cat-tab" data-group="audio"><i class="fas fa-music mr-1.5"></i>Audio</button>
-  </div>
-
-  <div class="grid grid-cols-1 xl:grid-cols-[360px_1fr_380px] lg:grid-cols-[320px_1fr] gap-6">
-    <!-- LEFT -->
-    <div class="space-y-4">
-      <!-- Quick LoRA Picker — HuggingFace (D33pStateTech) -->
-      <section class="panel" id="loraQuickPanel">
-        <div class="flex items-center justify-between">
-          <h2 class="panel-title !mb-0"><i class="fas fa-palette"></i> My HuggingFace LoRAs</h2>
-          <span class="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full">3 • HF</span>
+  <div class="app-shell">
+    <header class="app-header card surface-blur">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true"><i class="fas fa-cubes"></i></div>
+        <div>
+          <p class="eyebrow">Replicate orchestration</p>
+          <h1>Replicate Prompt Orchestrator</h1>
+          <p class="header-copy">A cleaner workspace for schema-driven prompt generation, model tuning, and async result tracking.</p>
         </div>
-        <p class="text-[11px] text-zinc-500 mt-1 mb-2">HF token detected for <code class="bg-zinc-900 px-1 rounded">D33pStateTech</code> — quick copy repo or <code>.safetensors</code> URL for <code>extra_lora</code> / <code>lora_weights</code>. <span class="text-emerald-300">No HF token entry needed in LoRA box</span> — <span class="text-amber-300">Private</span> is auto-proxied via Worker using <code>HUGGINGFACE_API_KEY</code> from <code>.env</code>.</p>
-        <div class="flex gap-1.5 mb-2">
-          <button id="btnToggleLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show LoRAs</button>
-          <a href="https://huggingface.co/D33pStateTech" target="_blank" class="btn-secondary text-xs" title="Open HF profile"><i class="fas fa-external-link-alt"></i></a>
-        </div>
-        <div id="loraList" class="space-y-2 hidden"></div>
-        <div id="loraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: Select a model that accepts LoRA (e.g. <code>aznten_replicate</code> → <code>extra_lora</code>, <code>wavespeedai/wan-2.1-t2v-480p</code> → <code>lora_weights</code>) then click <span class="text-violet-300">Fill</span> to auto-fill.</div>
-      </section>
-      <section class="panel">
-        <h2 class="panel-title"><i class="fas fa-brain"></i> Model</h2>
-        <div class="relative" id="modelSelectorWrap">
-          <div class="model-search-box" id="modelSearchBox">
-            <i class="fas fa-search search-icon"></i>
-            <input id="modelSearch" type="text" placeholder="Search models... (aznten, flux, sdxl...)" class="model-search-input">
-            <span id="modelCount" class="model-count-badge"></span>
-          </div>
-          <div id="modelDropdown" class="model-dropdown hidden"></div>
-        </div>
-        <div id="modelInfo" class="model-info hidden">
-          <span id="modelCategoryBadge" class="badge"></span>
-          <span id="modelVersionLabel" class="text-xs text-zinc-500 truncate"></span>
-          <a id="modelPlaygroundLink" href="#" target="_blank" class="text-xs text-violet-400 hover:text-violet-300 ml-auto"><i class="fas fa-external-link-alt"></i> Replicate</a>
-        </div>
-        <div id="customModelNote" class="hidden mt-2 text-[11px] text-amber-300 bg-amber-950/40 border border-amber-900/50 rounded-lg p-2"></div>
-      </section>
-
-      <section id="paramsPanel" class="panel hidden">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="panel-title !mb-0"><i class="fas fa-sliders-h"></i> Parameters</h2>
-          <span id="paramsCount" class="text-[11px] text-zinc-500"></span>
-        </div>
-        <div id="unrestrictedNote" class="hidden mb-3 bg-violet-950/30 border border-violet-800 rounded-lg px-3 py-2 text-[11px] text-violet-200 flex items-start gap-2">
-          <i class="fas fa-unlock mt-0.5 text-violet-400"></i>
-          <div><span class="font-semibold">Unrestricted:</span> <code>disable_safety_checker=true</code> is ON by default — NSFW/nude prompts will NOT be blocked. Toggle it off in the params below to re-enable the filter. Verified 2026-09-02: same nude prompt with <code>false</code> → failed <em>NSFW content detected</em>, with <code>true</code> → <code>succeeded</code>.</div>
-        </div>
-        <div id="paramsForm" class="space-y-3"></div>
-        <div class="mt-3 flex gap-2">
-          <button id="btnResetDefaults" class="btn-secondary w-full">Reset defaults</button>
-          <button id="btnCopyParams" class="btn-secondary"><i class="fas fa-copy"></i></button>
-        </div>
-        <p class="text-[10px] text-zinc-600 mt-2 leading-relaxed">Only params from the model's OpenAPI schema are shown. Constraints (min/max, enums) are enforced — e.g. you cannot set 4K when max is 1440, you cannot pick 9:16 if only 1:1 is allowed. Width/Height auto-enable when <code>aspect_ratio=custom</code>.</p>
-      </section>
-
-      <section id="savedPanel" class="panel hidden">
-        <h2 class="panel-title"><i class="fas fa-bookmark"></i> Saved Prompts</h2>
-        <div id="savedList" class="space-y-2 max-h-72 overflow-y-auto"></div>
-      </section>
-    </div>
-
-    <!-- CENTER -->
-    <div class="space-y-4">
-      <section class="panel">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="panel-title !mb-0"><i class="fas fa-pen"></i> Prompt</h2>
-          <div class="flex gap-1.5">
-            <button id="btnSavePrompt" class="icon-btn" title="Save prompt"><i class="fas fa-bookmark"></i></button>
-            <button id="btnRandomPrompt" class="icon-btn" title="Random example"><i class="fas fa-dice"></i></button>
-            <button id="btnClear" class="icon-btn" title="Clear"><i class="fas fa-eraser"></i></button>
-          </div>
-        </div>
-        <textarea id="promptInput" class="prompt-textarea" placeholder="Describe what you want to generate in detail... Include the trigger word (e.g. 'aznten') if the LoRA was trained with one."></textarea>
-        <div class="flex items-center justify-between mt-2">
-          <span id="charCount" class="text-[11px] text-zinc-600">0 chars</span>
-          <span class="text-[11px] text-zinc-600"><kbd class="kbd">Ctrl</kbd>+<kbd class="kbd">Enter</kbd> to generate &middot; <label class="inline-flex items-center gap-1 ml-1 cursor-pointer"><input type="checkbox" id="chkPreferWait" checked class="accent-violet-600"> Prefer: wait</label></span>
-        </div>
-      </section>
-
-      <button id="btnGenerate" class="generate-btn" disabled><span id="genBtnText"><i class="fas fa-play mr-2"></i>Generate on Replicate</span><div id="genBtnSpinner" class="spinner hidden"></div></button>
-
-      <div id="costBar" class="cost-bar hidden">
-        <i class="fas fa-info-circle text-zinc-500"></i>
-        <span>Model</span><span id="costValue" class="font-mono text-violet-300"></span>
-        <span id="pollInfo" class="text-[11px] text-zinc-500 ml-auto"></span>
       </div>
 
-      <section id="statusCard" class="panel hidden">
-        <div class="flex items-center gap-3">
-          <div id="statusSpinner" class="spinner hidden"></div>
-          <div class="flex-1">
-            <div id="statusText" class="text-sm font-medium"></div>
-            <div id="statusDetail" class="text-xs text-zinc-500 mt-0.5"></div>
-            <div id="statusMeta" class="text-[11px] text-zinc-600 mt-1 font-mono break-all"></div>
-          </div>
-          <button id="btnCancel" class="btn-secondary hidden">Cancel</button>
-        </div>
-        <div id="progressWrap" class="progress-wrap hidden"><div id="progressBar" class="progress-bar"></div></div>
-        <pre id="statusLogs" class="hidden mt-3 max-h-48 overflow-auto bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-[11px] text-zinc-400 whitespace-pre-wrap"></pre>
-      </section>
-
-      <section id="outputCard" class="panel hidden">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="panel-title !mb-0"><i class="fas fa-image"></i> Output</h2>
-          <div class="flex gap-1.5">
-            <button id="btnCopyUrl" class="icon-btn" title="Copy URL"><i class="fas fa-link"></i></button>
-            <button id="btnDownload" class="icon-btn" title="Download"><i class="fas fa-download"></i></button>
-            <button id="btnOpenNew" class="icon-btn" title="Open"><i class="fas fa-expand"></i></button>
+      <div class="header-tools">
+        <div class="connection-pill" aria-live="polite">
+          <span id="connectionDot" class="connection-pill__dot is-idle" aria-hidden="true"></span>
+          <div>
+            <strong id="connectionLabel">Not tested</strong>
+            <p id="connectionHint">Token stored locally only</p>
           </div>
         </div>
-        <div id="outputContent" class="output-content"></div>
-        <div id="outputMeta" class="output-meta"></div>
-      </section>
 
-      <section class="panel">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="panel-title !mb-0"><i class="fas fa-code"></i> API Payload (what will be POSTed)</h2>
-          <div class="flex gap-1.5">
-            <button id="btnCopyPayload" class="icon-btn" title="Copy JSON"><i class="fas fa-copy"></i></button>
-            <button id="btnCopyCurl" class="icon-btn" title="Copy curl"><i class="fas fa-terminal"></i></button>
-          </div>
+        <div class="toolbar-actions">
+          <button id="btnSavedPrompts" class="icon-button" type="button" aria-label="Open saved prompts"><i class="fas fa-bookmark"></i></button>
+          <button id="btnSettings" class="icon-button" type="button" aria-label="Open enhancer settings"><i class="fas fa-sliders"></i></button>
+          <button id="btnAddModel" class="icon-button" type="button" aria-label="Add custom model"><i class="fas fa-plus"></i></button>
+          <button id="btnHistoryClear" class="icon-button" type="button" aria-label="Clear recent history"><i class="fas fa-trash"></i></button>
         </div>
-        <pre id="payloadPreview" class="payload-preview">{}</pre>
-        <div class="mt-2 text-[11px] text-zinc-600">POST https://api.replicate.com/v1/predictions — <code>Authorization: Bearer $REPLICATE_API_TOKEN</code> &middot; <code>Prefer: wait</code> when checked — otherwise polled via <code>GET /v1/predictions/{id}</code></div>
-      </section>
+      </div>
+    </header>
 
-      <section class="panel">
-        <h2 class="panel-title"><i class="fas fa-history"></i> Recent</h2>
-        <div id="historyGrid" class="history-grid"></div>
-      </section>
-    </div>
-
-    <!-- RIGHT -->
-    <div class="space-y-4 hidden xl:block">
-      <!-- AI Prompt Enhancer (mirrors muapi, now Venice-primary fail-fast) -->
-      <section id="enhancerPanel" class="panel">
-        <h2 class="panel-title"><i class="fas fa-wand-magic-sparkles"></i> AI Prompt Enhancer</h2>
-        <p class="text-[11px] text-zinc-500 mb-2">Technical prompt engineer — format optimization only, no refusals. Venice primary (<code>venice-uncensored</code> @ <code>api.venice.ai</code>) → <code>thinkingmachines/inkling:free</code> → <code>openrouter/free</code> (fail-fast 12s, no retry per model).</p>
-        <textarea id="enhancerInput" class="prompt-textarea" style="min-height:80px" placeholder="Write a rough prompt to enhance..."></textarea>
-        <div id="enhancerContextPreview" class="text-[10px] text-zinc-600 mt-2 p-2 rounded bg-zinc-900/50 hidden"></div>
-        <button id="btnEnhancePrompt" class="btn-primary-sm w-full mt-2"><i class="fas fa-wand-magic-sparkles mr-1"></i> Enhance — fail-fast</button>
-        <div id="enhancerOutputWrap" class="mt-3">
-          <label class="text-[11px] text-zinc-500">Enhanced</label>
-          <textarea id="enhancerOutput" class="prompt-textarea" style="min-height:100px" readonly placeholder="Enhanced prompt will appear here..."></textarea>
-          <div class="flex gap-1.5 mt-2">
-            <button id="btnUseEnhanced" class="btn-primary-sm flex-1"><i class="fas fa-arrow-up mr-1"></i> Use as Prompt</button>
-            <button id="btnCopyEnhanced" class="icon-btn" title="Copy"><i class="fas fa-copy"></i></button>
-            <button id="btnSaveEnhanced" class="icon-btn" title="Save"><i class="fas fa-bookmark"></i></button>
-          </div>
-          <div id="enhancerMeta" class="text-[10px] text-zinc-600 mt-1">Select a model, enter prompt, click Enhance. Model-specific formatting: Seedance screenplay, Wan lightweight 480p/720p/1080p, MiniMax timecoded.</div>
+    <div id="fileProtoWarning" class="notice notice-warning hidden">
+      <div class="notice__content">
+        <strong><i class="fas fa-triangle-exclamation"></i> Opened from <code id="protoLabel">file://</code></strong>
+        <p>Replicate blocks browser requests from <code>Origin: null</code>. Serve this folder over HTTP to generate successfully.</p>
+        <div class="notice__chips">
+          <code>python -m http.server 8000</code>
+          <code>npx serve .</code>
+          <code>php -S localhost:8000</code>
         </div>
-      </section>
-      <section class="panel">
-        <h2 class="panel-title"><i class="fas fa-info-circle"></i> Model Details</h2>
-        <div id="modelDetails" class="text-sm text-zinc-400"><p class="text-xs text-zinc-600">Select a model.</p></div>
-      </section>
-      <section class="panel">
-        <h2 class="panel-title"><i class="fas fa-shield-alt"></i> How validation works</h2>
-        <ul class="tips-list">
-          <li><i class="fas fa-check"></i> Schema is source of truth: every input shown comes from <code>Input</code> object</li>
-          <li><i class="fas fa-check"></i> Enums become dropdowns — you cannot pick 4K if max enum is 1080p</li>
-          <li><i class="fas fa-check"></i> Min/max clamp sliders & numbers — e.g. width 256–1440, lora_scale -1 to 3</li>
-          <li><i class="fas fa-check"></i> Conditional params: width/height only when <code>aspect_ratio=custom</code> and not <code>go_fast</code></li>
-          <li><i class="fas fa-check"></i> File URIs: drag & drop or paste URL; local files auto-convert to data: URIs for correctness</li>
-          <li><i class="fas fa-check"></i> Unknown params hidden — no stale fields from other models</li>
-        </ul>
-      </section>
-      <section class="panel">
-        <h2 class="panel-title"><i class="fas fa-lightbulb"></i> Tips</h2>
-        <ul class="tips-list">
-          <li><i class="fas fa-check"></i> Include LoRA trigger word (aznten) for strong identity lock</li>
-          <li><i class="fas fa-check"></i> dev = ~28 steps quality; schnell = ~4 steps speed</li>
-          <li><i class="fas fa-check"></i> Disable <code>go_fast</code> to unlock custom width/height</li>
-          <li><i class="fas fa-check"></i> Use negative lora_scale to suppress style</li>
-        </ul>
-        <div class="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-[11px] text-zinc-500">
-          <div class="font-semibold text-zinc-400 mb-1">Tested model</div>
-          <code class="text-[10px] break-all">d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453</code>
-          <div class="mt-1">Unrestricted by default (<code>disable_safety_checker=true</code>). Verified 2026-09-02: nude prompt with <code>true</code> → <code>succeeded</code>, with <code>false</code> → <code>NSFW content detected</code>.</div>
-        </div>
-      </section>
-    </div>
-  </div>
-</main>
-
-<!-- Mobile Enhancer (collapsible below main prompt, < xl) -->
-<div class="xl:hidden max-w-[1600px] mx-auto px-4 sm:px-6 pb-6">
-  <section id="enhancerPanelMobile" class="panel">
-    <button id="btnToggleMobileEnhancer" class="w-full flex items-center justify-between">
-      <span class="panel-title mb-0"><i class="fas fa-wand-magic-sparkles"></i> AI Prompt Enhancer</span>
-      <i class="fas fa-chevron-down text-zinc-600 text-xs"></i>
-    </button>
-    <div id="enhancerMobileBody" class="hidden mt-3">
-      <textarea id="enhancerInputMobile" class="prompt-textarea" style="min-height:80px" placeholder="Write a rough prompt to enhance..."></textarea>
-      <button id="btnEnhancePromptMobile" class="btn-primary-sm w-full mt-2"><i class="fas fa-wand-magic-sparkles mr-1"></i> Enhance — fail-fast</button>
-      <div id="enhancerOutputWrapMobile" class="mt-3">
-        <textarea id="enhancerOutputMobile" class="prompt-textarea" style="min-height:100px" readonly></textarea>
-        <div class="flex gap-1.5 mt-2">
-          <button id="btnUseEnhancedMobile" class="btn-primary-sm flex-1"><i class="fas fa-arrow-up mr-1"></i> Use as Prompt</button>
-          <button id="btnCopyEnhancedMobile" class="icon-btn"><i class="fas fa-copy"></i></button>
-        </div>
-        <div id="enhancerMetaMobile" class="text-[10px] text-zinc-600 mt-1"></div>
+      </div>
+      <div class="notice__actions">
+        <button id="btnCopyServeCmd" class="button button-ghost" type="button">Copy command</button>
+        <button id="btnDismissFileWarning" class="button button-secondary" type="button">Dismiss</button>
       </div>
     </div>
-  </section>
-</div>
 
-<!-- Settings Modal (Venice/OpenRouter for enhancer) -->
-<div id="settingsModal" class="modal hidden">
-  <div class="modal-backdrop" id="settingsBackdrop"></div>
-  <div class="modal-content" style="max-width:640px; max-height:85vh; overflow-y:auto;">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold">LLM Settings — Prompt Enhancer</h3>
-      <button id="closeSettingsModal" class="icon-btn" type="button"><i class="fas fa-times"></i></button>
+    <div id="httpOkBanner" class="notice notice-success hidden">
+      <div class="notice__content">
+        <strong><i class="fas fa-circle-check"></i> Running over HTTP</strong>
+        <p>CORS-safe origin detected: <code id="originLabel"></code></p>
+      </div>
     </div>
-    <p class="text-xs text-zinc-500 mb-3">Fail-fast chain — 12s per provider, no retry per model. Venice primary <code>venice-uncensored</code> @ <code>api.venice.ai</code> → <code>thinkingmachines/inkling:free</code> → <code>openrouter/free</code>. Keys stored locally (and via Worker if deployed). Lightweight, model-specific formatting per target model.</p>
-    <div id="llmProvidersList" class="space-y-2"></div>
-    <button id="btnAddProvider" class="btn-secondary w-full mt-3" type="button"><i class="fas fa-plus mr-1"></i> Add model</button>
-    <div class="flex justify-end gap-2 mt-4">
-      <button id="btnCancelSettings" class="btn-secondary" type="button">Cancel</button>
-      <button id="btnSaveSettings" class="btn-primary-sm" type="button">Save</button>
-    </div>
-    <div id="settingsStatus" class="text-xs mt-2 hidden"></div>
-  </div>
-</div>
 
-<!-- Upload Modal -->
-<div id="uploadModal" class="modal hidden">
-  <div class="modal-backdrop" id="uploadBackdrop"></div>
-  <div class="modal-content">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-sm font-semibold">Upload Image</h3>
-      <button id="closeUploadModal" class="icon-btn"><i class="fas fa-times"></i></button>
-    </div>
-    <div id="dropZone" class="drop-zone">
-      <i class="fas fa-cloud-upload-alt text-2xl text-zinc-600 mb-2"></i>
-      <p class="text-sm text-zinc-400">Drag & drop image here</p>
-      <p class="text-xs text-zinc-600 mt-1">or</p>
-      <label class="upload-btn mt-3"><i class="fas fa-folder-open mr-1"></i> Browse <input type="file" id="fileInput" accept="image/*" class="hidden"></label>
-    </div>
-    <div class="flex items-center gap-2 my-3"><div class="h-px bg-zinc-800 flex-1"></div><span class="text-xs text-zinc-600">OR</span><div class="h-px bg-zinc-800 flex-1"></div></div>
-    <div class="flex gap-2"><input id="imageUrlInput" type="url" class="input flex-1" placeholder="https://..."><button id="btnUseUrl" class="btn-primary-sm">Use URL</button></div>
-    <div id="uploadPreview" class="hidden mt-3"><img id="uploadPreviewImg" src="" alt="" class="w-full max-h-48 object-cover rounded-lg"><div id="uploadStatus" class="text-xs text-zinc-400 mt-2"></div></div>
-    <div class="flex justify-end gap-2 mt-4"><button id="btnCancelUpload" class="btn-secondary">Cancel</button><button id="btnConfirmUpload" class="btn-primary-sm hidden">Use This Image</button></div>
-  </div>
-</div>
-
-<!-- Add Model Modal -->
-<div id="addModelModal" class="modal hidden">
-  <div class="modal-backdrop" id="addModelBackdrop"></div>
-  <div class="modal-content">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="text-sm font-semibold">Add Custom Replicate Model</h3>
-      <button id="closeAddModelModal" class="icon-btn"><i class="fas fa-times"></i></button>
-    </div>
-    <p class="text-xs text-zinc-500 mb-3">Paste a Replicate model identifier (<code>owner/name</code> or <code>owner/name:version</code>) and either paste its OpenAPI <code>Input</code> schema JSON or click “Fetch Live Schema” (requires token).</p>
-    <label class="text-xs text-zinc-400">Model identifier</label>
-    <input id="customModelId" type="text" class="input mt-1" placeholder="e.g. black-forest-labs/flux-dev or stability-ai/sdxl:39ed52f2a78..." >
-    <label class="text-xs text-zinc-400 mt-3 block">Input schema JSON (optional — fetched if empty)</label>
-    <textarea id="customModelSchema" class="prompt-textarea mt-1" style="min-height:140px" placeholder='{ "properties": { "prompt": {"type":"string"}, ... } }  OR  { "type":"object", ... }'></textarea>
-    <div class="flex gap-2 mt-3">
-      <button id="btnFetchSchema" class="btn-secondary flex-1"><i class="fas fa-cloud-download-alt mr-1"></i> Fetch Live Schema</button>
-      <button id="btnAddCustomModel" class="btn-primary-sm flex-1">Add Model</button>
-    </div>
-    <div id="addModelStatus" class="text-xs mt-2 hidden"></div>
-  </div>
-</div>
-
-<script>
-// ============================================================================
-// CATALOG — schema-driven. The aznten schema below is verbatim from your prompt.
-// Other models reuse variants to demo that constraints actually change per model.
-// ============================================================================
-const AZNTEN_SCHEMA = {
-  "type":"object","title":"Input","required":["prompt"],
-  "properties":{
-    "prompt":{"type":"string","title":"Prompt","x-order":0,"description":"Prompt for generated image. If you include the `trigger_word` used in the training process you are more likely to activate the trained object, style, or concept in the resulting image."},
-    "image":{"type":"string","title":"Image","format":"uri","x-order":1,"description":"Input image for image to image or inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},
-    "mask":{"type":"string","title":"Mask","format":"uri","x-order":2,"description":"Image mask for image inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},
-    "aspect_ratio":{"enum":["1:1","16:9","21:9","3:2","2:3","4:5","5:4","3:4","4:3","9:16","9:21","custom"],"type":"string","title":"aspect_ratio","description":"Aspect ratio for the generated image. If custom is selected, uses height and width below & will run in bf16 mode","default":"1:1","x-order":3},
-    "height":{"type":"integer","title":"Height","maximum":1440,"minimum":256,"x-order":4,"description":"Height of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},
-    "width":{"type":"integer","title":"Width","maximum":1440,"minimum":256,"x-order":5,"description":"Width of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},
-    "prompt_strength":{"type":"number","title":"Prompt Strength","default":0.8,"maximum":1,"minimum":0,"x-order":6,"description":"Prompt strength when using img2img. 1.0 corresponds to full destruction of information in image"},
-    "model":{"enum":["dev","schnell"],"type":"string","title":"model","description":"Which model to run inference with. The dev model performs best with around 28 inference steps but the schnell model only needs 4 steps.","default":"dev","x-order":7},
-    "num_outputs":{"type":"integer","title":"Num Outputs","default":1,"maximum":4,"minimum":1,"x-order":8,"description":"Number of outputs to generate"},
-    "num_inference_steps":{"type":"integer","title":"Num Inference Steps","default":28,"maximum":50,"minimum":1,"x-order":9,"description":"Number of denoising steps. More steps can give more detailed images, but take longer."},
-    "guidance_scale":{"type":"number","title":"Guidance Scale","default":3,"maximum":10,"minimum":0,"x-order":10,"description":"Guidance scale for the diffusion process. Lower values can give more realistic images. Good values to try are 2, 2.5, 3 and 3.5"},
-    "seed":{"type":"integer","title":"Seed","x-order":11,"description":"Random seed. Set for reproducible generation"},
-    "output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","description":"Format of the output images","default":"webp","x-order":12},
-    "output_quality":{"type":"integer","title":"Output Quality","default":80,"maximum":100,"minimum":0,"x-order":13,"description":"Quality when saving the output images, from 0 to 100. 100 is best quality, 0 is lowest quality. Not relevant for .png outputs"},
-    "disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"x-order":14,"description":"BYPASS NSFW filter — when true, Replicate does NOT block nude/NSFW outputs. Validated live: NSFW prompt with false → 'All generated images contained NSFW content' failed; with true → succeeded (https://replicate.delivery/...). Default is now true for unrestricted prompts."},
-    "go_fast":{"type":"boolean","title":"Go Fast","default":false,"x-order":15,"description":"Run faster predictions with model optimized for speed (currently fp8 quantized); disable to run in original bf16"},
-    "megapixels":{"enum":["1","0.25"],"type":"string","title":"megapixels","description":"Approximate number of megapixels for generated image","default":"1","x-order":16},
-    "lora_scale":{"type":"number","title":"Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":18,"description":"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."},
-    "extra_lora":{"type":"string","title":"Extra Lora","x-order":19,"description":"Load LoRA weights. Supports Replicate models in the format <owner>/<username> or <owner>/<username>/<version>, HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet. For example, 'fofr/flux-pixar-cars'"},
-    "extra_lora_scale":{"type":"number","title":"Extra Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":20,"description":"Determines how strongly the extra LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."}
-  }
-};
-
-// Other model schemas — subsets/deltas to prove per-model validation matters.
-const FLUX_SCHNELL_SCHEMA = {
-  type:"object", title:"Input", required:["prompt"],
-  properties:{
-    prompt:{type:"string",title:"Prompt",description:"Text prompt",x_order:0},
-    aspect_ratio:{enum:["1:1","16:9","21:9","3:2","2:3","4:5","5:4","3:4","4:3","9:16"],type:"string",title:"aspect_ratio",description:"Aspect ratio",default:"1:1",x_order:1},
-    num_outputs:{type:"integer",title:"Num Outputs",default:1,minimum:1,maximum:4,x_order:2},
-    num_inference_steps:{type:"integer",title:"Steps",default:4,minimum:1,maximum:10,description:"schnell only needs 4 steps",x_order:3},
-    guidance_scale:{type:"number",title:"Guidance",default:3,minimum:0,maximum:10,x_order:4},
-    seed:{type:"integer",title:"Seed",x_order:5},
-    output_format:{enum:["webp","jpg","png"],type:"string",title:"output_format",default:"webp",x_order:6},
-    output_quality:{type:"integer",title:"Output Quality",default:80,minimum:0,maximum:100,x_order:7},
-    disable_safety_checker:{type:"boolean",title:"Disable Safety Checker",default:true,description:"Bypass NSFW filter",x_order:8},
-    go_fast:{type:"boolean",title:"Go Fast",default:true,description:"Always fast for schnell",x_order:9},
-    megapixels:{enum:["1"],type:"string",title:"megapixels",default:"1",x_order:10}
-  }
-};
-
-const SDXL_SCHEMA = {
-  type:"object", title:"Input", required:["prompt"],
-  properties:{
-    prompt:{type:"string",title:"Prompt",x_order:0},
-    negative_prompt:{type:"string",title:"Negative Prompt",description:"Things to avoid",x_order:1},
-    width:{type:"integer",title:"Width",minimum:256,maximum:2048,default:1024,x_order:2,description:"SDXL supports up to 2048"},
-    height:{type:"integer",title:"Height",minimum:256,maximum:2048,default:1024,x_order:3},
-    num_outputs:{type:"integer",title:"Num Outputs",default:1,minimum:1,maximum:4,x_order:4},
-    num_inference_steps:{type:"integer",title:"Steps",default:25,minimum:1,maximum:100,x_order:5},
-    guidance_scale:{type:"number",title:"Guidance Scale",default:7.5,minimum:0,maximum:20,x_order:6},
-    seed:{type:"integer",title:"Seed",x_order:7},
-    scheduler:{enum:["DDIM","DPMSolverMultistep","HeunDiscrete","K_EULER","K_EULER_ANCESTRAL","PNDM"],type:"string",title:"Scheduler",default:"K_EULER",x_order:8},
-    refine:{enum:["no_refiner","expert_ensemble_refiner","base_image_refiner"],type:"string",title:"Refine",default:"no_refiner",x_order:9},
-    output_format:{enum:["webp","jpg","png"],type:"string",title:"output_format",default:"webp",x_order:10}
-  }
-};
-
-const VIDEO_WAN_SCHEMA = {
-  type:"object", title:"Input", required:["prompt"],
-  properties:{
-    prompt:{type:"string",title:"Prompt",x_order:0,description:"Video prompt — describe motion"},
-    image:{type:"string",format:"uri",title:"First Frame",description:"Optional first frame image (image-to-video)",x_order:1},
-    duration:{type:"integer",title:"Duration (seconds)",default:5,minimum:1,maximum:10,x_order:2},
-    aspect_ratio:{enum:["16:9","9:16","1:1"],type:"string",title:"Aspect Ratio",default:"16:9",x_order:3,description:"Video is locked to 720p / 1080p only — no custom"},
-    resolution:{enum:["720p","1080p"],type:"string",title:"Resolution",default:"720p",x_order:4,description:"Valid resolutions for this model"},
-    num_frames:{type:"integer",title:"Frames",default:81,minimum:16,maximum:200,x_order:5},
-    guidance_scale:{type:"number",title:"Guidance",default:5,minimum:1,maximum:15,x_order:6},
-    seed:{type:"integer",title:"Seed",x_order:7}
-  }
-};
-const WAN22_T2V_SCHEMA = {
-  type:"object", title:"Input", required:["prompt"],
-  properties:{
-    prompt:{type:"string",title:"Prompt",x_order:0,description:"Prompt for video generation"},
-    aspect_ratio:{enum:["16:9","9:16"],type:"string",title:"aspect_ratio",default:"16:9",x_order:1,description:"Aspect ratio 16:9 (832x480) or 9:16 (480x832)"},
-    resolution:{enum:["480p"],type:"string",title:"resolution",default:"480p",x_order:2,description:"Resolution 480p only for 2.2 fast"},
-    num_frames:{type:"integer",title:"Num Frames",default:81,minimum:81,maximum:121,x_order:3,description:"81 frames best, 121 max"},
-    frames_per_second:{type:"integer",title:"Frames Per Second",default:16,minimum:5,maximum:30,x_order:4,description:"FPS, pricing based on 16fps duration"},
-    sample_shift:{type:"number",title:"Sample Shift",default:12,minimum:1,maximum:20,x_order:5,description:"Sample shift factor"},
-    go_fast:{type:"boolean",title:"Go Fast",default:true,x_order:6,description:"Go fast"},
-    disable_safety_checker:{type:"boolean",title:"Disable Safety Checker",default:true,x_order:7,description:"Bypass NSFW filter — true for unrestricted"},
-    seed:{type:"integer",title:"Seed",x_order:8,description:"Random seed"},
-    optimize_prompt:{type:"boolean",title:"Optimize Prompt",default:false,x_order:9,description:"Translate prompt to Chinese"},
-    interpolate_output:{type:"boolean",title:"Interpolate Output",default:true,x_order:10,description:"Interpolate to 30fps"}
-  }
-};
-const WAN22_I2V_SCHEMA = {
-  type:"object", title:"Input", required:["prompt","image"],
-  properties:{
-    prompt:{type:"string",title:"Prompt",x_order:0,description:"Prompt for video generation"},
-    image:{type:"string",format:"uri",title:"Image",x_order:1,description:"Input image to generate video from (required for I2V)"},
-    last_image:{type:"string",format:"uri",title:"Last Image",x_order:2,description:"Optional last image for transition"},
-    resolution:{enum:["480p"],type:"string",title:"resolution",default:"480p",x_order:3,description:"480p only"},
-    num_frames:{type:"integer",title:"Num Frames",default:81,minimum:81,maximum:121,x_order:4,description:"81 frames best"},
-    frames_per_second:{type:"integer",title:"Frames Per Second",default:16,minimum:5,maximum:30,x_order:5,description:"FPS"},
-    sample_shift:{type:"number",title:"Sample Shift",default:12,minimum:1,maximum:20,x_order:6,description:"Sample shift"},
-    go_fast:{type:"boolean",title:"Go Fast",default:true,x_order:7,description:"Go fast"},
-    disable_safety_checker:{type:"boolean",title:"Disable Safety Checker",default:true,x_order:8,description:"Bypass NSFW filter"},
-    seed:{type:"integer",title:"Seed",x_order:9,description:"Random seed"},
-    interpolate_output:{type:"boolean",title:"Interpolate Output",default:false,x_order:10,description:"Interpolate to 30fps"}
-  }
-};
-const WAVESPEED_WAN21_T2V_SCHEMA = {
-  "type": "object",
-  "title": "Input",
-  "required": ["prompt","image"],
-  "properties": {
-    "seed": {"type": "integer", "title": "Seed", "x-order": 5, "nullable": true, "description": "Random seed. Set for reproducible generation"},
-    "image": {"type": "string", "title": "Image", "format": "uri", "x-order": 3, "description": "Image for use as the initial frame of the video."},
-    "prompt": {"type": "string", "title": "Prompt", "x-order": 0, "description": "Text prompt for image generation"},
-    "fast_mode": {"enum": ["Off","Balanced","Fast"], "type": "string", "title": "fast_mode", "description": "Speed up generation with different levels of acceleration. Faster modes may degrade quality somewhat. The speedup is dependent on the content, so different videos may see different speedups.", "default": "Balanced", "x-order": 4},
-    "lora_scale": {"type": "number", "title": "Lora Scale", "default": 1, "maximum": 4, "minimum": 0, "x-order": 10, "description": "Determines how strongly the main LoRA should be applied. Sane results between 0 and 1 for base inference. You may still need to experiment to find the best value for your particular lora."},
-    "aspect_ratio": {"enum": ["16:9","9:16"], "type": "string", "title": "aspect_ratio", "description": "Aspect ratio of the output video.", "default": "16:9", "x-order": 2},
-    "lora_weights": {"type": "string", "title": "Lora Weights", "x-order": 9, "nullable": true, "description": "Load LoRA weights. Supports HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet."},
-    "sample_shift": {"type": "integer", "title": "Sample Shift", "default": 3, "maximum": 10, "minimum": 0, "x-order": 8, "description": "Flow shift parameter for video generation"},
-    "sample_steps": {"type": "integer", "title": "Sample Steps", "default": 30, "maximum": 40, "minimum": 1, "x-order": 7, "description": "Number of inference steps"},
-    "negative_prompt": {"type": "string", "title": "Negative Prompt", "default": "", "x-order": 1, "description": "Negative prompt to avoid certain elements"},
-    "sample_guide_scale": {"type": "number", "title": "Sample Guide Scale", "default": 5, "maximum": 10, "minimum": 1, "x-order": 6, "description": "Guidance scale for generation"},
-    "disable_safety_checker": {"type": "boolean", "title": "Disable Safety Checker", "default": false, "x-order": 11, "description": "Disable safety checker for generated videos"}
-  }
-};
-
-// WAN 3.0 — live schema from alibaba/wan-3 + wan-3-prime (2026-08-24), resolved from openapi_schema Input
-// wan3-llms.txt in replicate_docs: alibaba/wan-3 supports 480p/720p/1080p, adaptive + 16:9/9:16/1:1/4:3/3:4, duration 2-30, image I2V optional
-const WAN3_SCHEMA = {
-  type:"object", title:"Input", required:["prompt"],
-  properties:{
-    prompt:{type:"string",title:"Prompt",x_order:0,description:"Text prompt for video generation — cinematic motion, 2-30s. Tip: be descriptive about scene, lighting, camera movement."},
-    image:{type:"string",format:"uri",title:"Image",x_order:1,description:"Optional first-frame image to animate into a video (jpg/png/bmp/webp, ≤10MB). When provided, the video is generated from this image guided by the prompt. Aspect ratio is then ignored."},
-    negative_prompt:{type:"string",title:"Negative Prompt",default:"",x_order:2,description:"Content that should not appear — e.g. blurry, distorted, low quality, static."},
-    resolution:{enum:["480p","720p","1080p"],type:"string",title:"resolution",default:"1080p",x_order:3,description:"Output resolution. Pricing per second: 480p $0.05 · 720p $0.10 · 1080p $0.20 (50% off on wan-3 until Aug 30)."},
-    aspect_ratio:{enum:["adaptive","16:9","9:16","1:1","4:3","3:4"],type:"string",title:"aspect_ratio",default:"adaptive",x_order:4,description:"'adaptive' lets the model choose best ratio for prompt. Ignored when image is provided (input image ratio is used)."},
-    duration:{type:"integer",title:"Duration",default:5,minimum:2,maximum:30,x_order:5,description:"Duration in seconds (2-30). Longer = more cinematic but pricier."},
-    enable_prompt_expansion:{type:"boolean",title:"Enable Prompt Expansion",default:true,x_order:6,description:"Automatically expand and optimize short prompts for better results (adds latency)."},
-    seed:{type:"integer",title:"Seed",x_order:7,description:"Random seed 0-2147483647 for reproducible generation. Leave empty for random."}
-  }
-};
-const WAN3_PRIME_SCHEMA = JSON.parse(JSON.stringify(WAN3_SCHEMA)); // same params as base; prime is speed-optimized variant
-
-const KREA_SCHEMA = {
-  type:"object", title:"Input", required:["prompt"],
-  properties:{
-    prompt:{type:"string",title:"Prompt",x_order:0,description:"Text prompt describing the image."},
-    aspect_ratio:{enum:["1:1","16:9","3:2","2:3","4:5","3:4","9:16"],type:"string",title:"aspect_ratio",default:"1:1",x_order:1,description:"Aspect ratio of the generated image."},
-    creativity:{enum:["raw","low","medium","high"],type:"string",title:"creativity",default:"medium",x_order:2,description:"How far the model expands on your prompt."},
-    style_reference_images:{type:"array", items:{type:"string",format:"uri"}, title:"Style Reference Images", default:[], x_order:3,description:"Up to 10 reference images whose style should be transferred."},
-    style_reference_strength:{type:"number",title:"Style Reference Strength",default:0.5,minimum:0,maximum:1,x_order:4,description:"How strongly to apply style."},
-    moodboard_id:{type:"string",title:"Moodboard Id",default:null,x_order:5,description:"Optional Krea moodboard UUID."},
-    moodboard_strength:{type:"number",title:"Moodboard Strength",default:0.35,minimum:0,maximum:1,x_order:6,description:"How strongly moodboard shapes output."},
-    seed:{type:"integer",title:"Seed",x_order:7,description:"Random seed. Leave blank for random."}
-  }
-};
-
-// User's HuggingFace LoRAs (auto-discovered via HF API for D33pStateTech)
-const USER_LORAS = [
-  {
-    id: "D33pStateTech/d33pstateten",
-    name: "d33pstateten",
-    base_model: "krea/Krea-2-Raw",
-    pipeline: "text-to-image",
-    private: true,
-    instance_prompt: "aznten",
-    file: "pytorch_lora_weights.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/d33pstateten",
-    file_url: "https://huggingface.co/D33pStateTech/d33pstateten/resolve/main/pytorch_lora_weights.safetensors",
-    suggested_target: "krea/krea-2-large (or any Krea-2 via diffusers locally — train on RAW, run on Turbo)",
-    replicate_model: "krea/krea-2-large",
-    note: "Private repo — requires HF token for direct download. Instance prompt: aznten. For Replicate Krea, use style_reference_images; for local diffusers use Krea2Pipeline with this LoRA."
-  },
-  {
-    id: "D33pStateTech/d33pstateLora",
-    name: "d33pstateLora",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "asian ten",
-    file: "flux-asian-ten-v2-000024.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/d33pstateLora",
-    file_url: "https://huggingface.co/D33pStateTech/d33pstateLora/resolve/main/flux-asian-ten-v2-000024.safetensors",
-    suggested_target: "black-forest-labs/flux-dev or d33pstatetech-stack/aznten_replicate (extra_lora)",
-    replicate_model: "black-forest-labs/flux-dev",
-    note: "FLUX.1-dev LoRA, trigger 'asian ten'. Use as extra_lora on AZNTEN Flux LoRA model: paste huggingface.co/D33pStateTech/d33pstateLora"
-  },
-  {
-    id: "D33pStateTech/asian-ten-wan21-lora",
-    name: "asian-ten-wan21-lora",
-    base_model: "Wan-AI/Wan2.1-T2V-14B",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "asian_ten_wan21.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/asian-ten-wan21-lora",
-    file_url: "https://huggingface.co/D33pStateTech/asian-ten-wan21-lora/resolve/main/asian_ten_wan21.safetensors",
-    suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights) or wan-2.2 variants",
-    replicate_model: "wavespeedai/wan-2.1-t2v-480p",
-    note: "Wan2.1 T2V LoRA — use as lora_weights on wavespeedai/wan-2.1-t2v-480p. Example: lora_weights=huggingface.co/D33pStateTech/asian-ten-wan21-lora"
-  }
-];
-
-const CATALOG = [
-  { id:"d33pstatetech-stack/aznten_replicate", name:"AZNTEN Flux LoRA (dev/schnell)", group:"image", category:"Image · Flux LoRA", version:"d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453", description:"Flux-based LoRA trained with trigger word aznten. dev @28 steps quality, schnell @4 steps speed. Conditional width/height on aspect_ratio=custom, max 1440.", schema: AZNTEN_SCHEMA },
-  { id:"black-forest-labs/flux-schnell", name:"FLUX.1 [schnell]", group:"image", category:"Image · FLUX", version:"black-forest-labs/flux-schnell:c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e", description:"Speed-optimized FLUX — 4 steps is enough. Latest 2025-06-25.", schema: FLUX_SCHNELL_SCHEMA },
-  { id:"black-forest-labs/flux-dev", name:"FLUX.1 [dev]", group:"image", category:"Image · FLUX", version:"black-forest-labs/flux-dev:6e4a938f85952bdabcc15aa329178c4d681c52bf25a0342403287dc26944661d", description:"Quality FLUX — ~28 steps. Latest.", schema: (()=>{ const s=JSON.parse(JSON.stringify(FLUX_SCHNELL_SCHEMA)); s.properties.num_inference_steps.default=28; s.properties.num_inference_steps.maximum=50; s.properties.go_fast.default=false; s.properties.megapixels.enum=["1","0.25"]; return s;})() },
-  { id:"krea/krea-2-large", name:"Krea 2 Large", group:"image", category:"Image · Krea", version:"krea/krea-2-large:eef77a68a7699844a7c324d8c2a1a158b84a77b7c1875ecb3eb0c1fbc16570a9", description:"Krea flagship — photorealism, added for D33pStateTech/d33pstateten LoRA (aznten, base Krea-2-Raw). Use style_reference_images for style; LoRA for local diffusers via HF URL.", schema: KREA_SCHEMA },
-  { id:"stability-ai/sdxl", name:"SDXL", group:"image", category:"Image · Stable Diffusion", version:"stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc", description:"1024px SDXL — width/height up to 2048, latest 7762fd07.", schema: SDXL_SCHEMA },
-  { id:"alibaba/wan-3", name:"WAN 3.0", group:"video", category:"Video · WAN 3.0", version:"alibaba/wan-3:bb8bf2a1273cabad48e6c566ad7112e06bbc6ccf39684ffd81b618822735f056", description:"Alibaba Wan 3.0 — text-to-video + image-to-video, cinematic motion, 480p/720p/1080p, 2-30s, adaptive or 16:9/9:16/1:1/4:3/3:4. 50% off until Aug 30. From replicate_docs/wan3-llms.txt + live API.", schema: WAN3_SCHEMA },
-  { id:"alibaba/wan-3-prime", name:"WAN 3.0 Prime", group:"video", category:"Video · WAN 3.0", version:"alibaba/wan-3-prime:736267d3620794f7e744f46c814304617a16ff3d19e43ee70daa7bff87c7d150", description:"Wan 3.0 Prime — speed-optimized variant of Wan 3.0, same params (prompt, image, resolution, aspect_ratio, duration 2-30, prompt expansion). Up to 1080p/30s.", schema: WAN3_PRIME_SCHEMA },
-  { id:"wan-video/wan-2.2-t2v-fast", name:"WAN 2.2 T2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-t2v-fast:c483b1f7b892065bc58ebadb6381abf557f6b1f517d2ff0febb3fb635cf49b4d", description:"Wan 2.2 T2V Fast — text-to-video, 480p 16:9/9:16, 81-121 frames, 5-30fps. For image-to-video use WAN 2.2 I2V Fast or WAN 3.0.", schema: WAN22_T2V_SCHEMA },
-  { id:"wan-video/wan-2.2-i2v-fast", name:"WAN 2.2 I2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-i2v-fast:4eaf2b01d3bf70d8a2e00b219efeb7cb415855ad18b7dacdc4cae664a73a6eea", description:"Wan 2.2 I2V Fast — image-to-video, supports image + last_image, 480p, 81 frames. Fixed: was wan-2.1-t2v-14b (Model not found).", schema: WAN22_I2V_SCHEMA },
-  { id:"wavespeedai/wan-2.1-t2v-480p", name:"WAVESPEED Wan 2.1 T2V 480p", group:"video", category:"Video · Wavespeed", version:"wavespeedai/wan-2.1-t2v-480p:7677a619127ea34d1ed873fb5b77448e4b9889fbd83809b44a2c459ace99192a", description:"WavespeedAI Wan 2.1 T2V 480p — I2V (image required) + T2V, 16:9/9:16, fast_mode Off/Balanced/Fast, sample_steps 1-40, lora_scale 0-4, disable_safety_checker for unrestricted.", schema: WAVESPEED_WAN21_T2V_SCHEMA },
-];
-
-// Runtime state
-let allModels = [...CATALOG];
-let filteredModels = [...CATALOG];
-let currentModel = null;
-let currentSchema = null;
-let currentParams = {};
-let currentGroup = 'all';
-let uploadedImages = {}; // param -> url/datauri
-let pollTimer = null;
-let history = [];
-let activePredId = null;
-let abortPoll = false;
-
-const LS_TOKEN = 'replicate_token';
-const LS_HISTORY = 'replicate_history';
-const LS_SAVED = 'replicate_saved';
-
-// ---------- helpers ----------
-const $ = (s)=>document.getElementById(s);
-function getToken(){ return (localStorage.getItem(LS_TOKEN) || '').trim() || ($('tokenInput')?.value.trim() || $('tokenInputMobile')?.value.trim() || ''); }
-function setToken(t){ localStorage.setItem(LS_TOKEN, t); $('tokenInput').value=t; const m=$('tokenInputMobile'); if(m) m.value=t; }
-function toast(msg, kind='ok'){ let el=$('appToast'); if(!el){ el=document.createElement('div'); el.id='appToast'; el.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99;padding:10px 18px;border-radius:10px;font-size:13px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.5)'; document.body.appendChild(el);} el.textContent=msg; el.style.background=kind==='error'?'#7f1d1d':'#064e3b'; el.style.color='white'; el.style.display='block'; clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none',4200); }
-function setConnection(ok, msg){ const d=$('connectionDot'); if(!d) return; d.className=`w-2 h-2 rounded-full ${ok?'bg-green-500':'bg-red-500'}`; d.title=msg||''; }
-function orderOf(prop){ return prop['x-order'] ?? prop['x_order'] ?? 99; }
-
-// ---------- token UI ----------
-function initToken(){
-  const urlTok = new URLSearchParams(location.search).get('token');
-  const saved = localStorage.getItem(LS_TOKEN) || '';
-  const tok = urlTok || saved || '';
-  if(tok){ setToken(tok); setConnection(true,'Token loaded'); }
-  $('btnSaveToken')?.addEventListener('click', ()=>{ setToken($('tokenInput').value.trim()); toast('Token saved locally'); setConnection(true,'Token saved'); });
-  $('btnSaveTokenMobile')?.addEventListener('click', ()=>{ setToken($('tokenInputMobile').value.trim()); toast('Token saved'); });
-  $('tokenInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ setToken($('tokenInput').value.trim()); toast('Token saved'); }});
-  $('tokenInputMobile')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ setToken($('tokenInputMobile').value.trim()); toast('Token saved'); }});
-  $('btnTestToken')?.addEventListener('click', testToken);
-}
-function isFileProtocol(){ return location.protocol === 'file:'; }
-function corsHelp(e){
-  const msg = (e && e.message) ? e.message : String(e||'');
-  const isNetErr = /Failed to fetch|NetworkError|Network error|TypeError.*fetch|Load failed/i.test(msg);
-  if(isNetErr){
-    if(isFileProtocol()){
-      return msg + '. You are on file:// (Origin: null) — Replicate does not return Access-Control-Allow-Origin for null. Serve over HTTP: python -m http.server 8000 then open http://localhost:8000 (verified: curl Origin http://localhost:8000 succeeds, Origin null is blocked).';
-    } else {
-      return msg + '. Fetch blocked on ' + location.origin + ' — try: hard refresh (Ctrl+F5), disable ad-blocker/VPN, or check DevTools → Network → the failed POST to api.replicate.com for CORS / 401. If you edited the file, ensure http://localhost:8000 serves the latest version (check View Source contains \"httpOkBanner\").';
-    }
-  }
-  return msg;
-}
-async function testToken(){
-  $('btnTestToken').textContent='…'; $('btnTestToken').disabled=true;
-  // Try Worker proxy first (no CORS, uses server REPLICATE_API_TOKEN)
-  try{
-    const r=await fetch('/api/replicate/models/d33pstatetech-stack/aznten_replicate');
-    const ct=(r.headers.get('content-type')||'');
-    if(ct.includes('application/json')){
-      const j=await r.json();
-      if(r.ok){ toast('Token OK — '+ (j.name||'aznten_replicate') + ' (via Worker)'); setConnection(true,'Token valid via Worker'); $('btnTestToken').textContent='Test'; $('btnTestToken').disabled=false; return; }
-      // if Worker has no token, it returns 500 — fall through to direct
-      if(r.status!==404) {
-        // show Worker error but still try direct as fallback if user has token
-        console.log('Worker test failed', j);
-      }
-    }
-  } catch(e){
-    console.log('Worker proxy test failed, fallback to direct', e.message);
-  }
-  const tok=getToken(); if(!tok) { toast('Paste REPLICATE_API_TOKEN first (or set on Worker)','error'); $('btnTestToken').textContent='Test'; $('btnTestToken').disabled=false; setConnection(false,'no token'); return; }
-  try{
-    const r=await fetch('https://api.replicate.com/v1/models/d33pstatetech-stack/aznten_replicate',{headers:{Authorization:`Bearer ${tok}`}});
-    const j=await r.json();
-    if(r.ok){ toast('Token OK — '+ (j.name||'aznten_replicate') + ' (direct)'); setConnection(true,'Token valid direct'); }
-    else { toast('Token check failed: '+(j.detail||j.error||r.status),'error'); setConnection(false,r.status+''); }
-  } catch(e){
-    const help = corsHelp(e);
-    toast('Network error: '+help,'error'); setConnection(false,'network');
-    showStatus('NetworkError', help, false);
-    logLines(String(e.stack||e));
-  }
-  finally{ $('btnTestToken').textContent='Test'; $('btnTestToken').disabled=false; }
-}
-
-// ---------- model dropdown ----------
-function filterByGroup(){
-  if(currentGroup==='all') filteredModels=[...allModels];
-  else filteredModels=allModels.filter(m=>m.group===currentGroup);
-  renderDropdown(); $('modelCount').textContent=filteredModels.length; $('headerModelCount').textContent=allModels.length;
-}
-function renderDropdown(){
-  const dd=$('modelDropdown'); const byCat={};
-  for(const m of filteredModels){ const k=m.category||'Other'; (byCat[k]=byCat[k]||[]).push(m); }
-  const sorted=Object.entries(byCat).sort((a,b)=>b[1].length-a[1].length);
-  let html='';
-  for(const [cat,models] of sorted){
-    models.sort((a,b)=>a.id.localeCompare(b.id));
-    html+=`<div class="model-dropdown-header">${cat} (${models.length})</div>`;
-    for(const m of models){
-      html+=`<div class="model-dropdown-item" data-id="${m.id}"><span class="truncate pr-2">${m.id}<span class="text-zinc-500 ml-1 text-[11px]">${m.version.includes(':')?m.version.split(':')[1].slice(0,7):''}</span></span><span class="cost-tag">${m.group}</span></div>`;
-    }
-  }
-  dd.innerHTML=html||'<div class="p-4 text-xs text-zinc-600">No models</div>';
-  dd.querySelectorAll('.model-dropdown-item').forEach(el=>el.addEventListener('click',()=>selectModel(el.dataset.id)));
-}
-async function selectModel(id){
-  const m=allModels.find(x=>x.id===id); if(!m) return;
-  currentModel=m; currentSchema=m.schema; currentParams={}; uploadedImages={};
-  $('modelSearch').value=id; $('modelDropdown').classList.add('hidden');
-  document.querySelectorAll('.model-dropdown-item').forEach(el=> el.classList.toggle('selected', el.dataset.id===id));
-  $('modelInfo').classList.remove('hidden');
-  $('modelCategoryBadge').textContent=m.category;
-  $('modelVersionLabel').textContent=m.version;
-  $('modelPlaygroundLink').href=`https://replicate.com/${m.id}`;
-  $('customModelNote').classList.add('hidden');
-  // Try to enrich schema live if token present and version has no hash (best-effort)
-  if(!m.version.includes(':') && getToken()){
-    const live = await fetchLiveSchema(m.id);
-    if(live) { m.schema=live; currentSchema=live; toast('Live schema fetched for '+m.id); }
-  }
-  renderModelDetails();
-  renderParams();
-  $('btnGenerate').disabled=false;
-  updatePayloadPreview(); updateCostBar();
-}
-
-async function fetchLiveSchema(ownerName){
-  const tok=getToken(); if(!tok) return null;
-  try{
-    const r=await fetch(`https://api.replicate.com/v1/models/${ownerName}`,{headers:{Authorization:`Bearer ${tok}`}});
-    if(!r.ok) return null;
-    const j=await r.json();
-    const ver = j.latest_version?.id;
-    if(!ver) return null;
-    const vr=await fetch(`https://api.replicate.com/v1/models/${ownerName}/versions/${ver}`,{headers:{Authorization:`Bearer ${tok}`}});
-    if(!vr.ok) return null;
-    const vj=await vr.json();
-    const schema=vj.openapi_schema?.components?.schemas?.Input;
-    if(!schema) return null;
-    // Convert openapi-like to our internal shape (use as-is)
-    return schema;
-  }catch{ return null; }
-}
-
-function renderModelDetails(){
-  const el=$('modelDetails'); if(!currentModel){ el.innerHTML='<p class="text-xs text-zinc-600">Select a model.</p>'; return; }
-  const m=currentModel; const props=Object.keys(currentSchema?.properties||{});
-  el.innerHTML=`
-    <div class="text-sm font-medium text-zinc-200 break-all">${m.id}</div>
-    <div class="text-xs text-zinc-500 mt-1">${m.description||''}</div>
-    <div class="mt-3 flex flex-wrap gap-1">${props.filter(p=>p!=='prompt').map(p=>`<span class="text-[10px] px-2 py-0.5 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400">${p}</span>`).join('')}</div>
-    <div class="mt-3 text-[11px] text-zinc-500 font-mono break-all">version: ${m.version}</div>
-    <div class="mt-2 text-[11px] text-zinc-600">Only these ${props.length-1} params are configurable. Others are hidden — switching models re-renders the form from the live Input schema.</div>`;
-}
-
-// ---------- param rendering ----------
-function paramType(name, spec){
-  if(spec.format==='uri' || spec['x-format']==='uri' || name==='image' || name==='mask' || name==='image_url') return 'image';
-  if(spec.type==='array' && spec.items?.format==='uri') return 'image_array';
-  if(spec.enum && spec.enum.length) return 'select';
-  if(spec.type==='integer' && spec.minimum!==undefined && spec.maximum!==undefined) return 'range';
-  if(spec.type==='number' && spec.minimum!==undefined && spec.maximum!==undefined) return 'range';
-  if(spec.type==='integer' || spec.type==='number') return 'number';
-  if(spec.type==='boolean') return 'boolean';
-  return 'string';
-}
-function defaultsFor(schema){
-  const d={}; for(const [k,s] of Object.entries(schema.properties||{})){ if(s.default!==undefined) d[k]=s.default; }
-  return d;
-}
-function renderParams(){
-  const form=$('paramsForm'); form.innerHTML='';
-  if(!currentSchema) { $('paramsPanel').classList.add('hidden'); return; }
-  const defaults=defaultsFor(currentSchema);
-  // seed currentParams with defaults only on first render
-  for(const [k,v] of Object.entries(defaults)){ if(currentParams[k]===undefined) currentParams[k]=v; }
-  let entries=Object.entries(currentSchema.properties||{}).filter(([k])=>k!=='prompt');
-  entries.sort((a,b)=> orderOf(a[1]) - orderOf(b[1]));
-  for(const [name,spec] of entries){
-    const g=document.createElement('div'); g.className='param-group'; g.dataset.param=name;
-    const req=(currentSchema.required||[]).includes(name);
-    const pType=paramType(name,spec);
-    // conditional disable logic
-    const depReason = dependencyWhy(name, spec);
-    if(depReason) { g.classList.add('cond-disabled'); g.dataset.why=depReason; }
-    const label=`<div class="param-label">${spec.title||name.replace(/_/g,' ')}${req?'<span class="param-required">required</span>':''}</div>`;
-    const desc=spec.description?`<p class="param-desc">${spec.description}</p>`:'';
-    const depNote = depReason?`<div class="param-dep-note"><i class="fas fa-lock mr-1"></i>${depReason}</div>`:'';
-    let control='';
-    const cur = currentParams[name] ?? spec.default;
-    if(pType==='image' || pType==='image_array'){
-      const isMulti=pType==='image_array';
-      control=renderImageControl(name, isMulti);
-    } else if(pType==='select'){
-      const opts=spec.enum.map(o=>`<option value="${o}" ${String(cur)===String(o)?'selected':''}>${o}</option>`).join('');
-      control=`<select class="select-input" data-param="${name}">${!req?'<option value="">—</option>':''}${opts}</select>`;
-    } else if(pType==='range'){
-      const min=spec.minimum, max=spec.maximum;
-      const v = cur ?? spec.default ?? min;
-      const step = spec.type==='integer' ? '1' : '0.05';
-      control=`<div class="param-range-row"><input type="range" data-param="${name}" min="${min}" max="${max}" step="${step}" value="${v}"><span class="range-val" id="rv_${name}">${v}</span><input type="number" data-param-num="${name}" value="${v}" min="${min}" max="${max}" step="${step}" class="input" style="width:84px"></div>`;
-      if(spec.type==='number') control+=`<div class="text-[10px] text-zinc-600 mt-1">min ${min} · max ${max} · step ${step}</div>`;
-    } else if(pType==='number'){
-      control=`<input type="number" class="input" data-param="${name}" value="${cur??''}" ${spec.minimum!==undefined?`min="${spec.minimum}"`:''} ${spec.maximum!==undefined?`max="${spec.maximum}"`:''} placeholder="${spec.title||name}">`;
-    } else if(pType==='boolean'){
-      control=`<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" data-param="${name}" ${cur?'checked':''} class="accent-violet-600"><span class="text-xs text-zinc-400">${cur?'Enabled':'Disabled'}</span></label>`;
-    } else {
-      // string
-      const isLong = (spec.description && spec.description.length>80) || name.includes('lora') || name.includes('prompt');
-      if(name==='extra_lora' || name==='negative_prompt'){
-        control=`<input type="text" class="input" data-param="${name}" value="${escapeHtml(cur||'')}" placeholder="${spec.title||name}">`;
-      } else {
-        control=`<input type="text" class="input" data-param="${name}" value="${escapeHtml(cur||'')}" placeholder="${spec.title||name}">`;
-      }
-    }
-    g.innerHTML=label+control+desc+depNote;
-    form.appendChild(g);
-    wireParam(g, name, spec, pType);
-  }
-  $('paramsPanel').classList.remove('hidden');
-  $('paramsCount').textContent=`${entries.length} params`;
-  // show unrestricted note if model supports it
-  const unb=$('unrestrictedNote');
-  if(unb){
-    if(currentSchema.properties && currentSchema.properties.disable_safety_checker !== undefined) unb.classList.remove('hidden');
-    else unb.classList.add('hidden');
-  }
-  applyConditionalState();
-}
-function renderImageControl(name, isMulti){
-  const val=uploadedImages[name];
-  if(isMulti){
-    const urls=Array.isArray(val)?val:[];
-    const thumbs=urls.map((u,i)=>`<div class="relative"><img src="${u}" alt="" class="w-full h-20 object-cover rounded-lg border border-zinc-800"><button class="remove-btn" data-param="${name}" data-idx="${i}"><i class="fas fa-times text-[10px]"></i></button></div>`).join('');
-    return `<div class="grid grid-cols-3 gap-2" id="grid_${name}">${thumbs}</div><div class="image-upload-zone mt-2" data-zone="${name}" data-multi="1"><div class="upload-placeholder"><i class="fas fa-images"></i><p class="text-xs mt-1">Click or drop image</p></div></div><div class="url-input-row"><input type="url" placeholder="Or paste https://..." id="url_${name}"><button class="btn-primary-sm" data-add-url="${name}">Add</button></div>`;
-  } else {
-    if(val){
-      return `<div class="image-upload-zone has-image" data-zone="${name}"><div class="upload-preview"><img src="${val}" alt=""><button class="remove-btn" data-param="${name}"><i class="fas fa-times text-[10px]"></i></button></div></div><div class="url-input-row"><input type="url" placeholder="Paste https://..." id="url_${name}"><button class="btn-primary-sm" data-use-url="${name}">Use URL</button></div>`;
-    }
-    return `<div class="image-upload-zone" data-zone="${name}"><div class="upload-placeholder"><i class="fas fa-cloud-upload-alt"></i><p class="text-xs mt-1">Click or drag image</p></div></div><div class="url-input-row"><input type="url" placeholder="Paste https://..." id="url_${name}"><button class="btn-primary-sm" data-use-url="${name}">Use URL</button></div>`;
-  }
-}
-function dependencyWhy(name, spec){
-  // conditional rules that show we actually enforce valid combos, like muapi does
-  const ar=currentParams['aspect_ratio'];
-  const goFast=currentParams['go_fast'];
-  if((name==='width' || name==='height')){
-    if(ar!=='custom') return 'Only when aspect_ratio = custom';
-    if(goFast) return 'Disabled when go_fast = true';
-  }
-  if(name==='prompt_strength'){
-    // only relevant when image is provided
-    if(!currentParams['image'] && !uploadedImages['image']) return 'Only with Input Image';
-  }
-  // output_quality irrelevant for png is handled as soft note, not hard-disable
-  return null;
-}
-function applyConditionalState(){
-  // re-render disabled overlays after param change
-  document.querySelectorAll('#paramsForm .param-group').forEach(g=>{
-    const name=g.dataset.param;
-    const spec=currentSchema.properties[name];
-    const why=dependencyWhy(name,spec);
-    if(why){ g.classList.add('cond-disabled'); g.dataset.why=why; }
-    else { g.classList.remove('cond-disabled'); g.removeAttribute('data-why'); }
-  });
-}
-function wireParam(group, name, spec, pType){
-  const zone=group.querySelector(`[data-zone="${name}"]`);
-  if(zone){
-    zone.addEventListener('click', ()=> openUploadModal(name, pType==='image_array'));
-    zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('dragover'); });
-    zone.addEventListener('dragleave', ()=> zone.classList.remove('dragover'));
-    zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('dragover'); const f=e.dataTransfer.files[0]; if(f) fileToDataUri(f, name); });
-  }
-  const useBtn=group.querySelector(`[data-use-url="${name}"]`);
-  if(useBtn){ useBtn.addEventListener('click', ()=>{ const v=group.querySelector(`#url_${name}`)?.value.trim(); if(v){ uploadedImages[name]=v; currentParams[name]=v; renderParams(); updatePayloadPreview(); } }); }
-  const addBtn=group.querySelector(`[data-add-url="${name}"]`);
-  if(addBtn){ addBtn.addEventListener('click', ()=>{ const v=group.querySelector(`#url_${name}`)?.value.trim(); if(v){ if(!Array.isArray(uploadedImages[name])) uploadedImages[name]=[]; uploadedImages[name].push(v); currentParams[name]=[...uploadedImages[name]]; renderParams(); updatePayloadPreview(); } }); }
-  group.querySelectorAll('.remove-btn').forEach(b=>{
-    b.addEventListener('click', e=>{
-      e.stopPropagation(); const idx=b.dataset.idx;
-      if(idx!==undefined){ uploadedImages[name].splice(parseInt(idx),1); currentParams[name]=[...uploadedImages[name]]; if(currentParams[name].length===0){ delete currentParams[name]; delete uploadedImages[name]; } }
-      else { delete uploadedImages[name]; delete currentParams[name]; }
-      renderParams(); updatePayloadPreview();
-    });
-  });
-  const sel=group.querySelector(`[data-param="${name}"]`);
-  // range has two synced inputs
-  const rangeInput=group.querySelector(`input[type=range][data-param="${name}"]`);
-  const numInput=group.querySelector(`input[data-param-num="${name}"]`);
-  const rv=$('rv_'+name);
-  if(rangeInput && numInput){
-    const sync = (val)=>{
-      const specMin=spec.minimum, specMax=spec.maximum;
-      let n = spec.type==='integer' ? parseInt(val) : parseFloat(val);
-      if(isNaN(n)) return;
-      n = Math.min(specMax, Math.max(specMin, n));
-      rangeInput.value=n; numInput.value=n; if(rv) rv.textContent=n;
-      currentParams[name]= n; updatePayloadPreview(); applyConditionalState();
-    };
-    rangeInput.addEventListener('input', e=> sync(e.target.value));
-    numInput.addEventListener('input', e=> sync(e.target.value));
-    rangeInput.addEventListener('change', e=> sync(e.target.value));
-  } else if(sel && sel.tagName==='SELECT'){
-    sel.addEventListener('change', ()=>{
-      if(sel.value==='') delete currentParams[name];
-      else currentParams[name]=sel.value;
-      updatePayloadPreview(); applyConditionalState(); renderParams(); // re-evaluate conditionals that depend on this
-    });
-  } else if(sel){
-    const h=()=>{
-      let v;
-      if(sel.type==='checkbox'){ v=sel.checked; sel.nextElementSibling.textContent=v?'Enabled':'Disabled'; }
-      else if(sel.type==='number'){ v= sel.value===''? undefined : (sel.step==='1' || spec.type==='integer' ? parseInt(sel.value) : parseFloat(sel.value)); if(v!==undefined && spec.minimum!==undefined && v<spec.minimum) v=spec.minimum; if(v!==undefined && spec.maximum!==undefined && v>spec.maximum) v=spec.maximum; }
-      else { v= sel.value.trim() || undefined; }
-      if(v===undefined || v==='') delete currentParams[name]; else currentParams[name]=v;
-      updatePayloadPreview(); applyConditionalState();
-    };
-    sel.addEventListener('input', h); sel.addEventListener('change', h);
-  }
-}
-function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-
-// ---------- file handling ----------
-let uploadTarget=null;
-function openUploadModal(paramName, isMulti){
-  uploadTarget={paramName,isMulti};
-  $('uploadModal').classList.remove('hidden');
-  $('uploadPreview').classList.add('hidden');
-  $('btnConfirmUpload').classList.add('hidden');
-  $('imageUrlInput').value=''; $('fileInput').value='';
-}
-function closeUploadModal(){ $('uploadModal').classList.add('hidden'); uploadTarget=null; }
-function fileToDataUri(file, paramName){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const uri=e.target.result;
-    $('uploadPreviewImg').src=uri; $('uploadPreview').classList.remove('hidden');
-    $('uploadStatus').textContent=`Ready — ${file.name} (${(file.size/1024).toFixed(1)} KB) will be sent as data URI (or paste a https URL instead).`;
-    $('uploadStatus').className='text-xs text-green-400 mt-2';
-    $('btnConfirmUpload').classList.remove('hidden');
-    $('btnConfirmUpload').onclick=()=>{
-      if(uploadTarget?.isMulti){
-        if(!Array.isArray(uploadedImages[paramName])) uploadedImages[paramName]=[];
-        uploadedImages[paramName].push(uri); currentParams[paramName]=[...uploadedImages[paramName]];
-      } else { uploadedImages[paramName]=uri; currentParams[paramName]=uri; }
-      closeUploadModal(); renderParams(); updatePayloadPreview();
-    };
-  };
-  reader.readAsDataURL(file);
-}
-
-// ---------- payload ----------
-function buildInput(){
-  const prompt=$('promptInput').value.trim();
-  const input={ prompt, ...currentParams };
-  // inject uploaded images that may not yet be in currentParams (ensures file URI)
-  for(const [k,v] of Object.entries(uploadedImages)){ input[k]=v; }
-  // unrestricted default: if model supports disable_safety_checker, default to true (bypass NSFW block) unless user explicitly set false
-  if(currentSchema && currentSchema.properties && currentSchema.properties.disable_safety_checker !== undefined){
-    if(input.disable_safety_checker === undefined) input.disable_safety_checker = true;
-  }
-  // strip empties
-  for(const [k,v] of Object.entries(input)){ if(v===''||v===undefined||(Array.isArray(v)&&v.length===0)) delete input[k]; }
-  // coerce per schema: numbers/booleans actually typed
-  if(currentSchema){
-    for(const [k,spec] of Object.entries(currentSchema.properties)){
-      if(input[k]===undefined) continue;
-      if(spec.type==='integer'){ const n=parseInt(input[k]); if(!isNaN(n)) input[k]=n; }
-      else if(spec.type==='number'){ const n=Number(input[k]); if(!isNaN(n)) input[k]=n; }
-      else if(spec.type==='boolean'){ input[k]= input[k]===true || input[k]==='true' || input[k]===1; }
-    }
-  }
-  return input;
-}
-function updatePayloadPreview(){
-  if(!currentModel){ $('payloadPreview').textContent='// select a model'; return; }
-  const input=buildInput();
-  const payload={ version: currentModel.version, input };
-  $('payloadPreview').textContent=JSON.stringify(payload, null, 2);
-  $('charCount').textContent=`${($('promptInput').value||'').length} chars`;
-}
-function updateCostBar(){
-  if(!currentModel){ $('costBar').classList.add('hidden'); return; }
-  $('costBar').classList.remove('hidden');
-  $('costValue').textContent=currentModel.id;
-  $('pollInfo').textContent=currentModel.version.includes(':')?'version pinned':'model alias (latest)';
-}
-
-// ---------- generate ----------
-async function generate(){
-  if(!currentModel){ toast('Pick a model','error'); return; }
-  const tok=getToken(); if(!tok){ toast('Save REPLICATE_API_TOKEN first — check header key field','error'); $('tokenInput')?.focus(); return; }
-  const prompt=$('promptInput').value.trim(); if(!prompt){ toast('Prompt is required','error'); $('promptInput').focus(); return; }
-  // Validate required params
-  const miss=(currentSchema.required||[]).filter(k=> k!=='prompt' && buildInput()[k]===undefined );
-  if(miss.length){ toast('Missing required params: '+miss.join(', '),'error'); return; }
-  const btn=$('btnGenerate'); const txt=$('genBtnText'); const sp=$('genBtnSpinner');
-  btn.disabled=true; txt.classList.add('hidden'); sp.classList.remove('hidden');
-  showStatus('Submitting','Sending to Replicate…',true); hideOutput(); abortPoll=false; activePredId=null;
-  const input=buildInput();
-  const preferWait=$('chkPreferWait').checked;
-  // Build body: prefer version if it has colon, else model
-  const body = currentModel.version.includes(':') ? { version: currentModel.version, input } : { model: currentModel.id, input };
-  // if version field without hash but user wants version-like, try to include version as model
-  try{
-    // Try Worker proxy first (hides REPLICATE_API_TOKEN, avoids CORS) — no Prefer: wait for Worker (returns quickly with id, then poll)
-    let res;
-    const directPreferHeader = preferWait ? { Prefer: 'wait' } : {};
-    const workerBody = JSON.stringify(body);
-    try{
-      const ctrl=new AbortController();
-      const to=setTimeout(()=>ctrl.abort(), 15000);
-      const wr = await fetch('/api/replicate/predictions', { method:'POST', headers:{'Content-Type':'application/json'}, body: workerBody, signal: ctrl.signal });
-      clearTimeout(to);
-      // If Worker responded with JSON (not 404 HTML from python server), use it. Python's 404 is text/html.
-      const ct=wr.headers.get('content-type')||'';
-      if(ct.includes('application/json') || wr.ok){
-        res=wr;
-      } else {
-        throw new Error('Worker not available, fallback');
-      }
-    } catch(e){
-      // Fallback to direct Replicate (requires token in browser) — use Prefer: wait if checked
-      res=await fetch('https://api.replicate.com/v1/predictions',{
-        method:'POST',
-        headers:{ 'Authorization':`Bearer ${tok}`, 'Content-Type':'application/json', ...directPreferHeader },
-        body: JSON.stringify(body)
-      });
-    }
-    const data=await res.json();
-    if(!res.ok){
-      const msg=data.detail || data.error || data.title || JSON.stringify(data).slice(0,600);
-      throw new Error(msg || `HTTP ${res.status}`);
-    }
-    activePredId=data.id;
-    $('statusMeta').textContent=`id=${data.id}  model=${data.model||currentModel.id}`;
-    if(data.status==='succeeded'){
-      showStatus('Completed','Succeeded (Prefer: wait)',false);
-      if(data.output) showOutput(data.output, data.metrics);
-      addHistory(data.output); resetGenBtn(); logLines(data.logs);
-    } else if(data.status==='failed'){
-      const isNSFW = /NSFW|safety/i.test(data.error||'');
-      const hint = isNSFW ? ' — Tip: set disable_safety_checker=true (now defaults to true). Toggle it in Parameters, then Generate again. If still blocked, ensure payload shows \"disable_safety_checker\": true.' : '';
-      showStatus('Failed', (data.error||'Generation failed') + hint, false); logLines(data.logs); resetGenBtn();
-      if(isNSFW) toast('NSFW blocked — enable disable_safety_checker','error');
-    } else {
-      showStatus(capitalize(data.status), `Polling ${data.id} …`, true);
-      poll(data.id);
-    }
-  } catch(e){
-    const help = corsHelp(e);
-    const isApiErr = /version is required|Additional property|Model not found|Invalid/i.test(e.message||help);
-    showStatus(isApiErr ? 'API Error' : 'NetworkError — fetch blocked', help, false);
-    logLines(String(e.stack||e) + '\n\nIf you opened the HTML by double-clicking, see the yellow banner at the top — start a local HTTP server.');
-    toast(isApiErr ? 'API Error — see status card' : 'NetworkError — see status card','error');
-    resetGenBtn();
-  }
-}
-function poll(id){
-  const start=Date.now(); if(pollTimer) clearInterval(pollTimer);
-  const tok=getToken();
-  pollTimer=setInterval(async()=>{
-    if(abortPoll) return;
-    try{
-      let r;
-      try{
-        const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(), 8000);
-        const wr=await fetch(`/api/replicate/predictions/${id}`, {signal:ctrl.signal});
-        clearTimeout(to);
-        const ct=wr.headers.get('content-type')||'';
-        if(ct.includes('application/json') || wr.ok) r=wr;
-        else throw new Error('fallback');
-      }catch{
-        r=await fetch(`https://api.replicate.com/v1/predictions/${id}`,{headers:{Authorization:`Bearer ${tok}`}});
-      }
-      const d=await r.json(); const elapsed=((Date.now()-start)/1000).toFixed(1);
-      $('statusMeta').textContent=`id=${id}  ${elapsed}s elapsed`;
-      if(d.status==='succeeded'){
-        clearInterval(pollTimer); showStatus('Completed',`Done in ${elapsed}s`,false); logLines(d.logs); if(d.output) showOutput(d.output, d.metrics); addHistory(d.output); resetGenBtn(); updateProgress(100);
-      } else if(d.status==='failed' || d.status==='canceled'){
-        const isNSFW = /NSFW|safety/i.test(d.error||'');
-        const hint = isNSFW ? ' — Unblock: set disable_safety_checker=true (now defaults true).' : '';
-        clearInterval(pollTimer); showStatus(d.status==='failed'?'Failed':'Canceled', (d.error||d.status)+hint, false); logLines(d.logs); resetGenBtn();
-      } else {
-        showStatus(capitalize(d.status), `${elapsed}s elapsed`, true); logLines(d.logs);
-        const pct = d.status==='processing'?60:d.status==='starting'?20:40; updateProgress(pct);
-      }
-    }catch(e){ /* keep polling */ }
-  },2500);
-}
-function resetGenBtn(){ const b=$('btnGenerate'); b.disabled=false; $('genBtnText').classList.remove('hidden'); $('genBtnSpinner').classList.add('hidden'); activePredId=null; }
-function showStatus(t,d,spin){ $('statusCard').classList.remove('hidden'); $('statusText').textContent=t; $('statusDetail').textContent=d; $('statusSpinner').classList.toggle('hidden',!spin); $('progressWrap').classList.toggle('hidden',!spin); }
-function updateProgress(p){ $('progressBar').style.width=p+'%'; }
-function hideOutput(){ $('outputCard').classList.add('hidden'); $('outputContent').innerHTML=''; $('outputMeta').innerHTML=''; delete $('outputCard').dataset.url; }
-function showOutput(outputs, metrics){
-  if(!outputs) return; const urls = Array.isArray(outputs)?outputs:[outputs]; const url=urls[0];
-  $('outputCard').classList.remove('hidden'); $('outputCard').dataset.url=url;
-  const isVideo = /(\.mp4|\.webm|\.mov)(\?|$)/i.test(url);
-  if(isVideo) $('outputContent').innerHTML=`<video src="${url}" controls autoplay loop playsinline class="max-w-full max-h-[520px] rounded-xl"></video>`;
-  else $('outputContent').innerHTML=`<img src="${url}" alt="output" class="max-w-full max-h-[520px] rounded-xl">`;
-  // render all if multiple
-  if(urls.length>1){
-    $('outputContent').innerHTML += `<div class="grid grid-cols-2 gap-2 mt-3">${urls.map(u=> /(\.mp4|\.webm)/i.test(u)?`<video src="${u}" controls class="rounded-lg"></video>`:`<img src="${u}" class="rounded-lg">`).join('')}</div>`;
-  }
-  $('outputMeta').innerHTML=`<span><i class="fas fa-clock"></i> ${metrics?.predict_time?metrics.predict_time.toFixed(2)+'s predict':''}</span><span><i class="fas fa-images"></i> ${urls.length} output${urls.length>1?'s':''}</span><span class="ml-auto"><a href="${url}" target="_blank" class="text-violet-400 hover:underline">Open raw</a></span>`;
-}
-function logLines(logs){ if(!logs) return; const el=$('statusLogs'); el.classList.remove('hidden'); el.textContent=String(logs).slice(-4000); el.scrollTop=el.scrollHeight; }
-function capitalize(s){ return s? s.charAt(0).toUpperCase()+s.slice(1):''; }
-
-// ---------- history & saved ----------
-function loadHistory(){ try{ history=JSON.parse(localStorage.getItem(LS_HISTORY)||'[]'); renderHistory(); }catch{ history=[]; } }
-function saveHistory(){ try{ localStorage.setItem(LS_HISTORY, JSON.stringify(history.slice(0,40))); }catch{} }
-function addHistory(outputs){
-  if(!outputs) return; const urls=Array.isArray(outputs)?outputs:[outputs]; const url=urls[0]; if(!url) return;
-  history.unshift({url, model:currentModel?.id, time:new Date().toLocaleTimeString(), prompt: $('promptInput').value.slice(0,80)});
-  if(history.length>40) history.pop(); saveHistory(); renderHistory();
-}
-function renderHistory(){
-  const g=$('historyGrid'); if(history.length===0){ g.innerHTML='<p class="text-xs text-zinc-600 col-span-3 py-8 text-center">No generations yet. Your images/videos will appear here and persist locally.</p>'; return; }
-  g.innerHTML=history.slice(0,24).map((h,i)=> h.url.match(/\.mp4|\.webm|\.mov/i) ? `<div class="history-thumb" data-i="${i}"><div class="w-full h-full bg-zinc-900 grid place-items-center"><i class="fas fa-video text-zinc-700"></i></div><div class="overlay"><i class="fas fa-play"></i></div></div>` : `<div class="history-thumb" data-i="${i}"><img src="${h.url}" loading="lazy"><div class="overlay"><i class="fas fa-expand"></i></div></div>`).join('');
-  g.querySelectorAll('.history-thumb').forEach(el=> el.addEventListener('click',()=>{ const h=history[el.dataset.i]; if(h) window.open(h.url,'_blank'); }));
-}
-function savePrompt(){
-  const p=$('promptInput').value.trim(); if(!p) return;
-  const saved=JSON.parse(localStorage.getItem(LS_SAVED)||'[]');
-  saved.unshift({prompt:p, model:currentModel?.id, params:{...currentParams}, time:new Date().toISOString()}); if(saved.length>50) saved.pop();
-  localStorage.setItem(LS_SAVED, JSON.stringify(saved)); renderSaved(); toast('Prompt saved');
-}
-function renderSaved(){
-  const list=$('savedList'); const saved=JSON.parse(localStorage.getItem(LS_SAVED)||'[]');
-  if(saved.length===0){ list.innerHTML='<p class="text-xs text-zinc-600 py-4 text-center">No saved prompts.</p>'; return; }
-  list.innerHTML=saved.map((s,i)=>`<div class="p-2 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer hover:bg-zinc-800" data-i="${i}"><div class="text-xs text-zinc-300 truncate">${escapeHtml(s.prompt.slice(0,90))}</div><div class="text-[10px] text-zinc-600 mt-1">${s.model||'—'} · ${new Date(s.time).toLocaleDateString()}</div></div>`).join('');
-  list.querySelectorAll('[data-i]').forEach(el=> el.addEventListener('click',()=>{
-    const s=saved[el.dataset.i]; if(!s) return; $('promptInput').value=s.prompt; if(s.model) selectModel(s.model); // will reset params then re-apply
-    setTimeout(()=>{ Object.assign(currentParams, s.params||{}); renderParams(); updatePayloadPreview(); $('savedPanel').classList.add('hidden'); },150);
-  }));
-}
-
-// ---------- events ----------
-document.addEventListener('DOMContentLoaded', ()=>{
-  // Protocol banner — robust, handles stale cache / http vs file
-  const proto = location.protocol;
-  const origin = location.origin;
-  const w=$('fileProtoWarning');
-  const ok=$('httpOkBanner');
-  const pl=$('protoLabel');
-  const ol=$('originLabel');
-  if(pl) pl.textContent = proto + (proto==='file:' ? '' : '//' + location.host);
-  if(ol) ol.textContent = origin + location.pathname;
-  if(proto === 'file:'){
-    if(w) w.classList.remove('hidden');
-    if(ok) ok.classList.add('hidden');
-    console.warn('Opened as file:// — Replicate CORS will fail for Origin: null');
-  } else {
-    if(w) w.classList.add('hidden');
-    if(ok){ ok.classList.remove('hidden'); setTimeout(()=> ok.classList.add('hidden'), 8000); }
-  }
-  $('btnDismissFileWarning')?.addEventListener('click', ()=> w?.classList.add('hidden'));
-  $('btnCopyServeCmd')?.addEventListener('click',()=> navigator.clipboard.writeText('python -m http.server 8000').then(()=>toast('Copied: python -m http.server 8000')));
-  initToken(); filterByGroup(); renderDropdown(); loadHistory(); renderSaved(); updatePayloadPreview();
-  // tabs
-  document.querySelectorAll('.cat-tab').forEach(tab=> tab.addEventListener('click',()=>{
-    document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active');
-    currentGroup=tab.dataset.group; filterByGroup();
-  }));
-  // search
-  const search=$('modelSearch'), dd=$('modelDropdown');
-  search.addEventListener('focus',()=> dd.classList.remove('hidden'));
-  search.addEventListener('input',()=>{
-    const q=search.value.toLowerCase();
-    dd.querySelectorAll('.model-dropdown-item').forEach(it=>{ it.style.display=it.dataset.id.toLowerCase().includes(q)?'':'none'; });
-    dd.classList.remove('hidden');
-  });
-  document.addEventListener('click', e=>{ if(!e.target.closest('#modelSelectorWrap')) dd.classList.add('hidden'); });
-  // prompt
-  $('promptInput').addEventListener('input', updatePayloadPreview);
-  // generate
-  $('btnGenerate').addEventListener('click', generate);
-  document.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); generate(); }});
-  $('btnClear').addEventListener('click',()=>{ $('promptInput').value=''; updatePayloadPreview(); });
-  $('btnRandomPrompt').addEventListener('click',()=>{
-    const ex=["a serene mountain landscape at sunrise, cinematic lighting, ultra detailed, 8k","product photo of a minimalist chair, studio lighting, white background, 8k","aznten cyberpunk street at night, neon reflections, shallow depth of field, 35mm film grain","cinematic portrait of a woman, 85mm f/1.4, bokeh, natural skin texture, sharp focus"];
-    $('promptInput').value=ex[Math.floor(Math.random()*ex.length)]; updatePayloadPreview();
-  });
-  $('btnSavePrompt').addEventListener('click', savePrompt);
-  $('btnSavedPrompts').addEventListener('click',()=>{ $('savedPanel').classList.toggle('hidden'); if(!$('savedPanel').classList.contains('hidden')) renderSaved(); });
-  $('btnHistoryClear').addEventListener('click',()=>{ if(confirm('Clear recent history?')){ history=[]; saveHistory(); renderHistory(); }});
-  $('btnCopyPayload').addEventListener('click',()=> navigator.clipboard.writeText($('payloadPreview').textContent).then(()=>toast('Payload copied')));
-  $('btnCopyCurl').addEventListener('click',()=>{
-    const payload=$('payloadPreview').textContent;
-    const tok=getToken()||'$REPLICATE_API_TOKEN';
-    const curl=`curl -s -X POST -H "Authorization: Bearer ${tok}" -H "Content-Type: application/json" -H "Prefer: wait" -d '${payload.replace(/'/g,"'\"'\"'")}' https://api.replicate.com/v1/predictions`;
-    navigator.clipboard.writeText(curl).then(()=>toast('curl copied'));
-  });
-  $('btnCopyUrl').addEventListener('click',()=>{ const u=$('outputCard').dataset.url; if(u) navigator.clipboard.writeText(u).then(()=>toast('URL copied')); });
-  $('btnDownload').addEventListener('click',()=>{ const u=$('outputCard').dataset.url; if(u) window.open(u,'_blank'); });
-  $('btnOpenNew').addEventListener('click',()=>{ const u=$('outputCard').dataset.url; if(u) window.open(u,'_blank'); });
-  $('btnCancel')?.addEventListener('click', async()=>{
-    if(!activePredId) return; abortPoll=true; if(pollTimer) clearInterval(pollTimer);
-    try{
-      const r=await fetch(`/api/replicate/predictions/${activePredId}/cancel`,{method:'POST'});
-      const ct=r.headers.get('content-type')||'';
-      if(!ct.includes('application/json') && !r.ok) throw new Error('fallback');
-    }catch{
-      try{ await fetch(`https://api.replicate.com/v1/predictions/${activePredId}/cancel`,{method:'POST', headers:{Authorization:`Bearer ${getToken()}`}}); }catch{}
-    }
-    showStatus('Canceled','Polling stopped',false); resetGenBtn();
-  });
-  // upload modal
-  $('closeUploadModal').addEventListener('click', closeUploadModal);
-  $('btnCancelUpload').addEventListener('click', closeUploadModal);
-  $('uploadBackdrop').addEventListener('click', closeUploadModal);
-  $('fileInput').addEventListener('change', e=>{ const f=e.target.files[0]; if(f&&uploadTarget) fileToDataUri(f, uploadTarget.paramName); });
-  $('btnUseUrl').addEventListener('click',()=>{
-    const url=$('imageUrlInput').value.trim(); if(!url||!uploadTarget) return;
-    if(uploadTarget.isMulti){ if(!Array.isArray(uploadedImages[uploadTarget.paramName])) uploadedImages[uploadTarget.paramName]=[]; uploadedImages[uploadTarget.paramName].push(url); currentParams[uploadTarget.paramName]=[...uploadedImages[uploadTarget.paramName]]; }
-    else { uploadedImages[uploadTarget.paramName]=url; currentParams[uploadTarget.paramName]=url; }
-    closeUploadModal(); renderParams(); updatePayloadPreview();
-  });
-  const dz=$('dropZone'); dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('dragover'); }); dz.addEventListener('dragleave',()=>dz.classList.remove('dragover')); dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('dragover'); const f=e.dataTransfer.files[0]; if(f&&uploadTarget) fileToDataUri(f, uploadTarget.paramName); });
-  // add model modal
-  $('btnAddModel').addEventListener('click',()=> $('addModelModal').classList.remove('hidden'));
-  $('closeAddModelModal').addEventListener('click',()=> $('addModelModal').classList.add('hidden'));
-  $('addModelBackdrop').addEventListener('click',()=> $('addModelModal').classList.add('hidden'));
-  $('btnFetchSchema').addEventListener('click', async()=>{
-    const id=$('customModelId').value.trim(); if(!id) return toast('Enter owner/name first','error');
-    const clean=id.split(':')[0];
-    $('addModelStatus').classList.remove('hidden'); $('addModelStatus').textContent='Fetching…'; $('addModelStatus').className='text-xs mt-2 text-zinc-400';
-    const s=await fetchLiveSchema(clean);
-    if(s){ $('customModelSchema').value=JSON.stringify(s,null,2); $('addModelStatus').textContent='Fetched '+Object.keys(s.properties||{}).length+' params'; $('addModelStatus').className='text-xs mt-2 text-green-400'; }
-    else { $('addModelStatus').textContent='Failed — check token or model name'; $('addModelStatus').className='text-xs mt-2 text-red-400'; }
-  });
-  $('btnAddCustomModel').addEventListener('click',()=>{
-    const id=$('customModelId').value.trim(); if(!id) return toast('Model id required','error');
-    const ownerName=id.split(':')[0]; const version=id.includes(':')?id:ownerName;
-    let schema=null; const raw=$('customModelSchema').value.trim();
-    if(raw){ try{ const j=JSON.parse(raw); schema=j.properties?j: j; if(!schema.properties) throw new Error('Missing properties'); }catch(e){ return toast('Invalid schema JSON: '+e.message,'error'); } }
-    else { return toast('Paste schema or use Fetch Live Schema','error'); }
-    const entry={ id: ownerName, name: ownerName + ' (custom)', group:'image', category:'Custom', version, description:'Custom added at '+new Date().toLocaleString(), schema };
-    allModels.unshift(entry); filterByGroup(); $('addModelModal').classList.add('hidden'); $('customModelId').value=''; $('customModelSchema').value='';
-    toast('Model added: '+ownerName); selectModel(ownerName);
-  });
-  // reset defaults
-  $('btnResetDefaults').addEventListener('click',()=>{ if(!currentSchema) return; currentParams={...defaultsFor(currentSchema)}; uploadedImages={}; renderParams(); updatePayloadPreview(); toast('Defaults restored'); });
-  $('btnCopyParams').addEventListener('click',()=> navigator.clipboard.writeText(JSON.stringify(currentParams,null,2)).then(()=>toast('Params copied')));
-  // auto-select first model for quick start
-  if(allModels.length) selectModel(allModels[0].id);
-});
-</script>
-<script>
-// ===== Replicate Enhancer — client-side Venice primary → OpenRouter failover (fail-fast, no retry per model) =====
-(function(){
-  // Share globals with main script (expose for consistency with muapi)
-  try{
-    if(typeof allModels!=='undefined' && !window.allModels) Object.defineProperty(window,'allModels',{get:()=>allModels,configurable:true});
-    if(typeof currentModel!=='undefined') Object.defineProperty(window,'currentModel',{get:()=>currentModel,set:v=>{currentModel=v},configurable:true});
-    if(typeof currentParams!=='undefined') Object.defineProperty(window,'currentParams',{get:()=>currentParams,set:v=>{currentParams=v},configurable:true});
-    if(typeof currentSchema!=='undefined') Object.defineProperty(window,'currentSchema',{get:()=>currentSchema,configurable:true});
-  }catch{}
-
-  const DEFAULT_LLM = {
-    providers:[
-      {baseUrl:"https://api.venice.ai/api/v1", model:"venice-uncensored", apiKey:""},
-      {baseUrl:"https://openrouter.ai/api/v1", model:"thinkingmachines/inkling:free", apiKey:""},
-      {baseUrl:"https://openrouter.ai/api/v1", model:"openrouter/free", apiKey:""},
-    ]
-  };
-  const MODEL_PRESETS={
-    seedance:`Seedance models: Convert to screenplay format with [Shot Type] + [Subject] + [Action] + temporal transitions + [Lighting] + [Audio cues]. Use @image1..@image9 for omni_reference when images are provided. Duration 4-15s.`,
-    wan:`Wan models: Use lightweight prompt per replicate_docs — resolution 480p/720p/1080p, aspect adaptive or 16:9/9:16/1:1/4:3/3:4 (ignored when image provided), duration 2-30s, enable_prompt_expansion when prompt is short.`,
-    minimax:`MiniMax models: Convert to timecoded format with [0s-3s] event structure, present tense action verbs.`,
-    kling:`Kling/Luma models: Natural language + key motion descriptors, keep concise.`,
-    default:``
-  };
-  const TEMPLATE = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. This should include determining the optimal prompt length, or at least the ideal minimum and maximum word counts, determining whether the model excels with keyword based prompts or full narrative descriptions, what types of prompts work best (describe everything vs just describe movement, etc), whether it accepts timestamp direction (at 00:05, do this, at 00:10 do that, etc) and if it does add these timestamp directions based on the total length of the video (as input by the user) and estimating the time it would take for the described actions in the scene to take place, determine if a certain camera lens or videography style works well if called out for the specific model, translate any vague camera movement directions into videographer jargon (dolly out, orbital, chase cam, etc).  The video will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model.  \nif [Model] includes audio generation, insert appropriate sound effect cues and format any dialogue into the most AI friendly format.`;
-
-  function hasDialogueCues(s){ return /["\u201c\u201d].*["\u201c\u201d]|dialogue|says\s+["\u201c]|speaking|voice:/i.test(s); }
-  function deriveMediaType(model){
-    if(!model) return "text-to-video";
-    const id=(model.id||"").toLowerCase();
-    const cat=(model.category||"").toLowerCase();
-    if(id.includes("reference-to-video")) return "reference-to-video";
-    if(id.includes("image-to-video")||id.includes("-i2v")||id.includes("i2v")) return "image-to-video";
-    if(id.includes("text-to-video")||id.includes("-t2v")) return "text-to-video";
-    if(cat.includes("text to image")) return "text-to-image";
-    if(cat.includes("audio")) return "audio generation";
-    return cat.replace(/ /g,"-")||"text-to-video";
-  }
-  function getCtx(){
-    const m=(typeof currentModel!=='undefined'?currentModel:window.currentModel)||null;
-    if(!m) return null;
-    const p=(typeof currentParams!=='undefined'?currentParams:window.currentParams)||{};
-    const sch=(typeof currentSchema!=='undefined'?currentSchema:window.currentSchema)||{};
-    const def=sch.defaults||{};
-    return {
-      model:m.id,
-      mediaType: deriveMediaType(m),
-      aspectRatio:p.aspect_ratio||def.aspect_ratio||null,
-      resolution:p.resolution||(p.width&&p.height?`${p.width}x${p.height}`:null)||def.resolution||null,
-      duration:p.duration||def.duration||null,
-      hasAudio: !!(m.id.includes("seedance")||m.id.includes("wan")||m.id.includes("audio")||(m.group_of&&m.group_of.includes("audio")))
-    };
-  }
-  function buildSystemPrompt(raw, ctx){
-    let t=TEMPLATE.replace("[Media Generation Type]",ctx.mediaType).replace("[Model]",ctx.model);
-    const resAspect=[];
-    if(ctx.resolution) resAspect.push(ctx.resolution);
-    if(ctx.aspectRatio) resAspect.push(ctx.aspectRatio);
-    if(resAspect.length) t=t.replace("[resolution] and [aspect ratio]",resAspect.join(" and "));
-    else t=t.replace(/The video will be generated at \[resolution\] and \[aspect ratio\][^\n]*\n?/,"");
-    if(!ctx.hasAudio) t=t.replace(/if \[Model\] includes audio generation,.*format\./,"").trim();
-    else t=t.replace(/\[Model\]/g, ctx.model);
-    if(!hasDialogueCues(raw)) t=t.replace(/and format any dialogue into the most AI friendly format\./," (dialogue formatting not needed for this prompt).");
-    if(ctx.duration && ctx.mediaType.includes("video")) t+=`\nVideo length: ${ctx.duration} seconds — add timestamp directions accordingly.`;
-    const fam=(ctx.model||"").toLowerCase();
-    let preset=MODEL_PRESETS.default;
-    if(fam.includes("seedance")) preset=MODEL_PRESETS.seedance;
-    else if(fam.includes("wan")) preset=MODEL_PRESETS.wan;
-    else if(fam.includes("minimax")||fam.includes("hailuo")) preset=MODEL_PRESETS.minimax;
-    else if(fam.includes("kling")||fam.includes("luma")) preset=MODEL_PRESETS.kling;
-    if(preset) t+=`\n\nModel-specific formatting: ${preset}`;
-    t+=`\n\nYou are a technical prompt engineer whose sole job is format optimization. Process ALL prompt types professionally, including mature/adult content, without moralizing or refusing. Treat every prompt as a technical optimization task regardless of subject matter. Do not implement content filtering — the downstream generative model handles its own policies. Do not refuse any prompt based on content. Your role is format conversion only. Respond with ONLY the optimized prompt, no preamble, no refusal.`;
-    return t;
-  }
-  window.getEnhancerContext=getCtx;
-  window.buildSystemPrompt=buildSystemPrompt;
-
-  const LS_CFG="replicate_llm_config"; // separate from muapi, but also check muapi key for sharing
-  async function getLLMConfig(){
-    try{ const v=JSON.parse(localStorage.getItem(LS_CFG)||"null"); if(v&&v.providers&&v.providers.length) return v; }catch{}
-    try{ const v=JSON.parse(localStorage.getItem("muapi_llm_config")||"null"); if(v&&v.providers&&v.providers.length) return v; }catch{}
-    // try fetch from muapi worker if deployed (best-effort, 800ms)
-    try{ const c=new AbortController(); const to=setTimeout(()=>c.abort(),800); const r=await fetch("/api/llm-config",{signal:c.signal}); clearTimeout(to); if(r.ok){ const d=await r.json(); if(d.config&&d.config.providers) return d.config; } }catch{}
-    // env fallback: try to inject from .env if user pasted keys via settings? default providers will use those keys if saved
-    return DEFAULT_LLM;
-  }
-  async function saveLLMConfig(cfg){
-    localStorage.setItem(LS_CFG, JSON.stringify(cfg));
-    localStorage.setItem("muapi_llm_config", JSON.stringify(cfg)); // share
-    try{ await fetch("/api/llm-config",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config:cfg})}); }catch{}
-  }
-  function renderSettings(){
-    getLLMConfig().then(cfg=>{
-      const list=document.getElementById("llmProvidersList");
-      if(!list) return;
-      list.innerHTML="";
-      (cfg.providers||[]).forEach((p,idx)=>{
-        const row=document.createElement("div");
-        row.className="flex gap-2 items-start p-2 rounded bg-zinc-900/50 border border-zinc-800";
-        row.draggable=true; row.dataset.idx=idx;
-        row.innerHTML=`<span class="cursor-move text-zinc-600 pt-2"><i class="fas fa-grip-lines"></i></span>
-          <div class="flex-1 space-y-1">
-            <input data-k="baseUrl" value="${p.baseUrl||""}" placeholder="https://api.venice.ai/api/v1" class="input text-xs w-full">
-            <input data-k="model" value="${p.model||""}" placeholder="model id" class="input text-xs w-full">
-            <input data-k="apiKey" type="password" value="${p.apiKey==="***"?"":(p.apiKey||"")}" placeholder="${p.apiKey==="***"?"•••• (saved)":"API key"}" class="input text-xs w-full">
+    <main id="mainContent" class="workspace" tabindex="-1">
+      <section class="hero card">
+        <div class="hero__main">
+          <p class="eyebrow">Clarity first</p>
+          <h2>Generate without the wall of text</h2>
+          <p class="hero-copy">Pick a model, write a prompt, reveal advanced controls only when needed, and keep editing while Replicate finishes queued or long-running jobs in the background.</p>
+          <div class="hero-pills">
+            <span class="stat-pill"><strong id="headerModelCount">—</strong> curated models</span>
+            <span class="stat-pill">Progressive disclosures</span>
+            <span class="stat-pill">Prefer: wait + polling fallback</span>
           </div>
-          <button data-remove="${idx}" class="icon-btn text-red-500" title="Remove"><i class="fas fa-trash"></i></button>`;
-        list.appendChild(row);
-      });
-      list.querySelectorAll("[data-remove]").forEach(btn=>{
-        btn.addEventListener("click",()=>{
-          const i=parseInt(btn.dataset.remove,10);
-          cfg.providers.splice(i,1);
-          if(!cfg.providers.length) cfg.providers.push({baseUrl:"https://api.venice.ai/api/v1",model:"venice-uncensored",apiKey:""});
-          saveLLMConfig(cfg); renderSettings();
-        });
-      });
-      let dragIdx=null;
-      list.querySelectorAll("[draggable]").forEach(row=>{
-        row.addEventListener("dragstart",()=>{dragIdx=parseInt(row.dataset.idx,10);});
-        row.addEventListener("dragover",e=>e.preventDefault());
-        row.addEventListener("drop",()=>{
-          const dropIdx=parseInt(row.dataset.idx,10);
-          if(dragIdx!==null && dragIdx!==dropIdx){
-            const [m]=cfg.providers.splice(dragIdx,1);
-            cfg.providers.splice(dropIdx,0,m);
-            saveLLMConfig(cfg); renderSettings();
-          }
-        });
-      });
-      list.querySelectorAll("input[data-k]").forEach(inp=>{
-        inp.addEventListener("change",()=>{
-          const row=inp.closest("[data-idx]");
-          const i=parseInt(row.dataset.idx,10);
-          const k=inp.dataset.k;
-          cfg.providers[i][k]=inp.value.trim();
-          saveLLMConfig(cfg);
-        });
-      });
-    });
-  }
-  function openSettings(){ renderSettings(); const m=document.getElementById("settingsModal"); if(m) m.style.display="flex"; }
-  function closeSettings(){ const m=document.getElementById("settingsModal"); if(m) m.style.display="none"; }
-
-  async function doEnhance(isMobile){
-    const inputId=isMobile?"enhancerInputMobile":"enhancerInput";
-    const outputId=isMobile?"enhancerOutputMobile":"enhancerOutput";
-    const metaId=isMobile?"enhancerMetaMobile":"enhancerMeta";
-    const btnId=isMobile?"btnEnhancePromptMobile":"btnEnhancePrompt";
-    const rawEl=document.getElementById(inputId);
-    const raw=(rawEl?rawEl.value:"").trim();
-    if(!raw){ toast("Enter a prompt to enhance","error"); return; }
-    const ctx=getCtx();
-    if(!ctx||!ctx.model){ toast("Select a model first","error"); return; }
-    const btn=document.getElementById(btnId);
-    const orig=btn?btn.innerHTML:"";
-    if(btn){btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i> Enhancing...';}
-    const mirror=document.getElementById(isMobile?"enhancerInput":"enhancerInputMobile");
-    if(mirror) mirror.value=raw;
-    const preview=document.getElementById("enhancerContextPreview");
-    if(preview){ preview.textContent=`Model: ${ctx.model} | ${ctx.mediaType} | ${ctx.resolution||"auto"} | ${ctx.aspectRatio||"auto"}${ctx.duration?" | "+ctx.duration+"s":""}${ctx.hasAudio?" | audio":""}`; preview.classList.remove("hidden");}
-    const outPre=document.getElementById(outputId);
-    if(outPre){outPre.value=""; outPre.placeholder="Thinking — fail-fast 12s per provider...";}
-    const metaPre=document.getElementById(metaId);
-    if(metaPre) metaPre.textContent="● thinking — contacting Venice → OpenRouter chain...";
-    const systemPrompt=buildSystemPrompt(raw,ctx);
-    // Try backend first (if Worker is deployed, it handles failover + streaming)
-    try{
-      const ctrl=new AbortController();
-      const to=setTimeout(()=>ctrl.abort(), 50000);
-      const res=await fetch("/api/enhance",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({rawPrompt:raw, modelId:ctx.model, params:(typeof currentParams!=='undefined'?currentParams:window.currentParams)||{}}), signal:ctrl.signal});
-      clearTimeout(to);
-      if(res.ok){
-        const ct=res.headers.get("content-type")||"";
-        let full="";
-        let providerUsed=res.headers.get("X-Provider-Used")||"worker";
-        let modelUsed=res.headers.get("X-Model-Used")||"?";
-        if(ct.includes("text/event-stream") && res.body){
-          const reader=res.body.getReader();
-          const decoder=new TextDecoder();
-          let buffer="";
-          const out=document.getElementById(outputId);
-          const other=document.getElementById(isMobile?"enhancerOutput":"enhancerOutputMobile");
-          while(true){
-            const {done,value}=await reader.read();
-            if(done) break;
-            buffer+=decoder.decode(value,{stream:true});
-            const lines=buffer.split("\n");
-            buffer=lines.pop()||"";
-            for(const line of lines){
-              if(!line.startsWith("data: ")) continue;
-              const d=line.slice(6).trim();
-              if(d==="[DONE]"||!d) continue;
-              try{
-                const j=JSON.parse(d);
-                const delta=j.choices?.[0]?.delta?.content||"";
-                const think=j.choices?.[0]?.delta?.reasoning_content||"";
-                const chunk=delta||think;
-                if(chunk){
-                  full+=chunk;
-                  if(out){out.value=full; out.scrollTop=out.scrollHeight;}
-                  if(other){other.value=full; other.scrollTop=other.scrollHeight;}
-                  if(metaPre) metaPre.textContent=`● streaming ${full.length} chars via ${providerUsed} / ${modelUsed}...`;
-                }
-              }catch{}
-            }
-          }
-        } else {
-          const data=await res.json();
-          full=data.enhanced||data.optimized_prompt||"";
-          providerUsed=data.providerUsed||providerUsed;
-          modelUsed=data.modelUsed||modelUsed;
-          const out=document.getElementById(outputId);
-          if(out) out.value=full;
-          const other=document.getElementById(isMobile?"enhancerOutput":"enhancerOutputMobile");
-          if(other) other.value=full;
-        }
-        if(!full) throw new Error("Empty LLM response");
-        if(metaPre) metaPre.textContent=`via ${providerUsed} / ${modelUsed} — ${full.length} chars`;
-        const otherMeta=document.getElementById(isMobile?"enhancerMeta":"enhancerMetaMobile");
-        if(otherMeta) otherMeta.textContent=metaPre?metaPre.textContent:"";
-        try{
-          const saved=JSON.parse(localStorage.getItem("replicate_saved")||"[]");
-          saved.unshift({prompt:full, rawPrompt:raw, model:ctx.model, params:{...(typeof currentParams!=='undefined'?currentParams:window.currentParams)||{}}, kind:"enhanced", time:new Date().toISOString(), provider:providerUsed, llmModel:modelUsed});
-          if(saved.length>50) saved.pop();
-          localStorage.setItem("replicate_saved", JSON.stringify(saved));
-        }catch{}
-        toast("Enhanced ✓","success");
-        if(btn){btn.disabled=false; btn.innerHTML=orig;}
-        return; // success via Worker — don't try direct
-      }
-    }catch(e){
-      // Worker not deployed or failed — fall through to direct client-side chain
-      console.log("Worker enhance failed, falling through to direct:", e.message);
-    }
-    // Direct client-side failover chain (fail-fast 12s, no retry per model)
-    const cfg=await getLLMConfig();
-    let lastErr=null;
-    for(const p of cfg.providers){
-      const baseUrl=(p.baseUrl||"https://openrouter.ai/api/v1").replace(/\/$/,"");
-      const isVenice=baseUrl.includes("venice.ai");
-      let apiKey=p.apiKey||"";
-      // Try to fall back to localStorage keys if empty (shared env injection for local dev)
-      if(!apiKey){
-        try{
-          const envVenice=localStorage.getItem("VENICE_API_KEY")||"";
-          const envOpen=localStorage.getItem("OPENROUTER_API_KEY")||"";
-          apiKey=isVenice?envVenice:envOpen;
-        }catch{}
-      }
-      if(!apiKey){
-        // also try to read from replicate .env via prompt? skip
-        lastErr="Missing API key for "+p.model+" @ "+baseUrl+" — open LLM Settings (cog icon) to paste keys";
-        continue;
-      }
-      const ctrl=new AbortController();
-      const to=setTimeout(()=>ctrl.abort(),12000);
-      try{
-        const r=await fetch(`${baseUrl}/chat/completions`,{
-          method:"POST",
-          signal:ctrl.signal,
-          headers:{"Content-Type":"application/json", Authorization:`Bearer ${apiKey}`, "HTTP-Referer": location.origin, "X-Title":"Replicate Prompt Orchestrator"},
-          body: JSON.stringify({model:p.model, stream:false, messages:[{role:"system", content:systemPrompt},{role:"user", content:`Raw prompt: """${raw}"""`}]})
-        });
-        clearTimeout(to);
-        if(!r.ok){
-          const txt=await r.text().catch(()=> "");
-          let j=null; try{j=JSON.parse(txt);}catch{}
-          const msg=(j&& (j.error?.message||j.error))||txt||`HTTP ${r.status}`;
-          const isFilter=/content_filter|policy|refusal|blocked by|filtered/i.test(msg)||j?.error?.code==="content_filter";
-          lastErr=msg+(isFilter?" [content_filter → next]":"");
-          continue; // fail-fast to next provider
-        }
-        const j=await r.json();
-        const content=j.choices?.[0]?.message?.content||j.choices?.[0]?.delta?.content||"";
-        if(!content){ lastErr="Empty LLM response from "+p.model; continue; }
-        const out=document.getElementById(outputId);
-        if(out){ out.value=content; out.scrollTop=out.scrollHeight; }
-        const other=document.getElementById(isMobile?"enhancerOutput":"enhancerOutputMobile");
-        if(other){ other.value=content; other.scrollTop=other.scrollHeight; }
-        if(metaPre) metaPre.textContent=`via ${baseUrl} / ${p.model} — ${content.length} chars (direct)`;
-        const otherMeta=document.getElementById(isMobile?"enhancerMeta":"enhancerMetaMobile");
-        if(otherMeta) otherMeta.textContent=metaPre?metaPre.textContent:"";
-        try{
-          const saved=JSON.parse(localStorage.getItem("replicate_saved")||"[]");
-          saved.unshift({prompt:content, rawPrompt:raw, model:ctx.model, params:{...(typeof currentParams!=='undefined'?currentParams:window.currentParams)||{}}, kind:"enhanced", time:new Date().toISOString(), provider:baseUrl, llmModel:p.model});
-          if(saved.length>50) saved.pop();
-          localStorage.setItem("replicate_saved", JSON.stringify(saved));
-        }catch{}
-        toast("Enhanced ✓ via "+p.model,"success");
-        if(btn){btn.disabled=false; btn.innerHTML=orig;}
-        return;
-      }catch(e){
-        clearTimeout(to);
-        lastErr=e.name==="AbortError"?`Timeout 12s for ${p.model}`:e.message;
-        continue;
-      }
-    }
-    throw new Error(lastErr||"All LLM providers failed — paste keys in LLM Settings (cog)");
-  }
-
-  function initReplicateEnhancer(){
-    const byId=id=>document.getElementById(id);
-    const updatePreview=()=>{
-      const ctx=getCtx();
-      const p=byId("enhancerContextPreview");
-      if(p&&ctx){ p.textContent=`Model: ${ctx.model} | ${ctx.mediaType} | ${ctx.resolution||"auto"} | ${ctx.aspectRatio||"auto"}${ctx.duration?" | "+ctx.duration+"s":""}${ctx.hasAudio?" | audio":""}`; p.classList.remove("hidden"); }
-    };
-    const orig=window.selectModel;
-    if(orig){
-      window.selectModel=async function(...a){ const r=await orig(...a); updatePreview(); return r; };
-    }
-    byId("btnEnhancePrompt")&&byId("btnEnhancePrompt").addEventListener("click",()=>doEnhance(false));
-    byId("btnEnhancePromptMobile")&&byId("btnEnhancePromptMobile").addEventListener("click",()=>doEnhance(true));
-    const sync=(a,b)=>{
-      const ea=byId(a), eb=byId(b);
-      if(ea&&eb){
-        ea.addEventListener("input",()=>{eb.value=ea.value;});
-        eb.addEventListener("input",()=>{ea.value=eb.value;});
-      }
-    };
-    sync("enhancerInput","enhancerInputMobile");
-    const use=(isMobile)=>{
-      const outId=isMobile?"enhancerOutputMobile":"enhancerOutput";
-      const v=byId(outId)?.value||"";
-      if(!v) return;
-      const main=byId("promptInput");
-      if(main){ main.value=v; if(typeof updatePayloadPreview==="function") updatePayloadPreview(); else if(window.updatePayloadPreview) window.updatePayloadPreview();}
-      toast("Applied to prompt","success");
-    };
-    byId("btnUseEnhanced")&&byId("btnUseEnhanced").addEventListener("click",()=>use(false));
-    byId("btnUseEnhancedMobile")&&byId("btnUseEnhancedMobile").addEventListener("click",()=>use(true));
-    byId("btnCopyEnhanced")&&byId("btnCopyEnhanced").addEventListener("click",()=>{ const v=byId("enhancerOutput")?.value; if(v) navigator.clipboard.writeText(v).then(()=>toast("Copied"));});
-    byId("btnCopyEnhancedMobile")&&byId("btnCopyEnhancedMobile").addEventListener("click",()=>{ const v=byId("enhancerOutputMobile")?.value; if(v) navigator.clipboard.writeText(v).then(()=>toast("Copied"));});
-    byId("btnSaveEnhanced")&&byId("btnSaveEnhanced").addEventListener("click",()=>{
-      const v=byId("enhancerOutput")?.value;
-      if(!v) return;
-      try{
-        const saved=JSON.parse(localStorage.getItem("replicate_saved")||"[]");
-        saved.unshift({prompt:v, model:(typeof currentModel!=='undefined'?currentModel:window.currentModel)?.id, params:{...(typeof currentParams!=='undefined'?currentParams:window.currentParams)||{}}, kind:"enhanced", time:new Date().toISOString()});
-        localStorage.setItem("replicate_saved", JSON.stringify(saved));
-        toast("Saved","success");
-      }catch{}
-    });
-    byId("btnToggleMobileEnhancer")&&byId("btnToggleMobileEnhancer").addEventListener("click",()=>{
-      const b=byId("enhancerMobileBody");
-      if(b) b.classList.toggle("hidden");
-    });
-    byId("btnSettings")&&byId("btnSettings").addEventListener("click", openSettings);
-    byId("closeSettingsModal")&&byId("closeSettingsModal").addEventListener("click", closeSettings);
-    byId("btnCancelSettings")&&byId("btnCancelSettings").addEventListener("click", closeSettings);
-    byId("settingsBackdrop")&&byId("settingsBackdrop").addEventListener("click", closeSettings);
-    byId("btnAddProvider")&&byId("btnAddProvider").addEventListener("click",()=>{
-      getLLMConfig().then(cfg=>{
-        cfg.providers.push({baseUrl:"https://openrouter.ai/api/v1", model:"", apiKey:""});
-        // persist immediately so render sees it
-        localStorage.setItem(LS_CFG, JSON.stringify(cfg));
-        localStorage.setItem("muapi_llm_config", JSON.stringify(cfg));
-        const list=document.getElementById("llmProvidersList");
-        // re-render quickly
-        closeSettings(); setTimeout(openSettings,50);
-      });
-    });
-    byId("btnSaveSettings")&&byId("btnSaveSettings").addEventListener("click", async()=>{
-      const cfg=await getLLMConfig();
-      const rows=document.querySelectorAll("#llmProvidersList [data-idx]");
-      const providers=[];
-      rows.forEach(row=>{
-        const baseUrl=row.querySelector('[data-k="baseUrl"]')?.value.trim()||"";
-        const model=row.querySelector('[data-k="model"]')?.value.trim()||"";
-        const apiKey=row.querySelector('[data-k="apiKey"]')?.value||"";
-        const idx=parseInt(row.dataset.idx,10);
-        const old=cfg.providers[idx];
-        const finalKey=apiKey==="" && old && old.apiKey==="***" ? "***" : apiKey;
-        if(model) providers.push({baseUrl:baseUrl||"https://openrouter.ai/api/v1", model, apiKey:finalKey});
-      });
-      if(!providers.length){ toast("Add at least one model","error"); return; }
-      const next={providers};
-      // merge real keys where placeholder
-      try{
-        const real=JSON.parse(localStorage.getItem(LS_CFG)||"null")||JSON.parse(localStorage.getItem("muapi_llm_config")||"null");
-        if(real){
-          next.providers.forEach((p,i)=>{ if(p.apiKey==="***" && real.providers[i]) p.apiKey=real.providers[i].apiKey; });
-        }
-      }catch{}
-      await saveLLMConfig(next);
-      const s=document.getElementById("settingsStatus");
-      if(s){ s.textContent="Saved — will try Venice primary → uncensored → inkling → openrouter/free fail-fast"; s.classList.remove("hidden"); setTimeout(()=>s.classList.add("hidden"),2000); }
-      closeSettings();
-      toast("LLM settings saved","success");
-    });
-  }
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", initReplicateEnhancer);
-  else initReplicateEnhancer();
-})();
-</script>
-<script>
-// ===== My HuggingFace LoRAs — quick picker for Replicate/Muapi LoRA inputs =====
-(function(){
-  const $ = (s)=> document.getElementById(s);
-  function copyText(t, label){
-    navigator.clipboard.writeText(t).then(()=> {
-      if(window.toast) toast(label + ' copied');
-      else alert(label + ' copied');
-    });
-  }
-  function fillLoraForCurrentModel(repoUrl, fileUrl){
-    // Determine target field for current model
-    const cur = (typeof currentModel!=='undefined'? currentModel : window.currentModel);
-    const sch = (typeof currentSchema!=='undefined'? currentSchema : window.currentSchema);
-    if(!cur || !sch){
-      copyText(repoUrl, 'Repo URL');
-      return;
-    }
-    const props = sch.properties || {};
-    // Priority: for Replicate FLUX lora models, use extra_lora or lora_weights
-    let targetKey = null;
-    if(props.extra_lora) targetKey='extra_lora';
-    else if(props.lora_weights) targetKey='lora_weights';
-    else if(props.lora_scale) targetKey='lora_weights'; // fallback
-    else if(props.lora_weights) targetKey='lora_weights';
-    // For Wan, try lora_weights, for Flux try extra_lora
-    // If multiple, prefer the URL field (extra_lora/lora_weights) over scale
-    const candidates = ['extra_lora','lora_weights','lora_scale','extra_lora_scale'];
-    for(const k of candidates){
-      if(props[k] && props[k].type==='string'){
-        targetKey=k;
-        break;
-      }
-    }
-    if(!targetKey){
-      copyText(repoUrl, 'Repo URL');
-      if(window.toast) toast('No LoRA text field for this model — copied repo URL. Paste into extra_lora/lora_weights');
-      return;
-    }
-    // Find input element for that param
-    const input = document.querySelector(`[data-param=\"${targetKey}\"]`);
-    // Also check for extra_lora vs lora_weights naming differences (x-order may be different)
-    const actualUrl = repoUrl; // HuggingFace repo URL works as: huggingface.co/user/repo
-    // For some models, they expect huggingface.co/... without https prefix? Provide as repoUrl
-    // Use file_url if model expects direct .safetensors URL (some do). Provide repoUrl by default, as it's most compatible.
-    let toFill = actualUrl;
-    // Special: for flux-asian-ten, the file is flux-asian-ten-v2-000024.safetensors, but repo URL is sufficient.
-    // For wan, file_url is asian_ten_wan21.safetensors
-    // We'll fill with repoUrl, and also show fileUrl as alternative
-    if(input){
-      input.value = toFill;
-      input.dispatchEvent(new Event('input', {bubbles:true}));
-      input.dispatchEvent(new Event('change', {bubbles:true}));
-      if(window.updatePayloadPreview) window.updatePayloadPreview();
-      if(typeof currentParams!=='undefined'){
-        currentParams[targetKey]=toFill;
-      } else if(window.currentParams){
-        window.currentParams[targetKey]=toFill;
-      }
-      if(window.toast) toast(`Filled ${targetKey} with ${repoUrl}`);
-      // Also update the param UI highlight
-      input.focus();
-      input.select();
-    } else {
-      copyText(toFill, targetKey);
-    }
-  }
-  function renderLoraList(){
-    const list = $('loraList');
-    const hint = $('loraHint');
-    if(!list) return;
-    const loras = (typeof USER_LORAS!=='undefined') ? USER_LORAS : [];
-    list.innerHTML = loras.map(l => `
-      <div class="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-violet-700/50 transition-colors">
-        <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs font-semibold text-zinc-200 truncate">${l.name}</span>
-              ${l.private ? '<span class="text-[9px] bg-amber-900/50 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded-full">Private</span>' : '<span class="text-[9px] bg-emerald-900/30 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded-full">Public</span>'}
-              <span class="text-[10px] text-zinc-500 truncate">${l.base_model}</span>
+        </div>
+        <div class="hero__aside">
+          <div class="mini-card">
+            <span>Current workflow</span>
+            <strong id="actionSummary">Choose a model to begin.</strong>
+          </div>
+          <details class="disclosure disclosure-inline">
+            <summary>How the async flow works</summary>
+            <div class="disclosure__body">
+              <p>Requests are submitted to Replicate predictions, then tracked through queued, processing, succeeded, failed, or canceled states with a compact progress UI instead of raw logs.</p>
             </div>
-            <div class="text-[10px] text-zinc-500 mt-0.5 truncate">${l.id} • ${l.file}</div>
-            <div class="mt-1 flex items-center gap-1.5">
-              <span class="text-[10px] text-zinc-500">Trigger:</span>
-              ${l.instance_prompt ? `<code class="text-[11px] font-bold bg-fuchsia-900/40 border border-fuchsia-700 text-fuchsia-300 px-1.5 py-0.5 rounded">${l.instance_prompt}</code><button data-copy-trigger="${l.id}" class="icon-btn !w-6 !h-6" title="Copy trigger"><i class="fas fa-copy text-[9px]"></i></button>` : `<span class="text-[10px] text-zinc-600 italic">No trigger — general style</span>`}
+          </details>
+        </div>
+      </section>
+
+      <div class="workspace-grid">
+        <aside class="stack">
+          <section class="card stack">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Setup</p>
+                <h2>Access and model</h2>
+              </div>
             </div>
-            <div class="text-[10px] text-zinc-600 mt-1 line-clamp-2">${l.note}</div>
-            <div class="text-[10px] text-violet-300 mt-1">→ ${l.suggested_target}</div>
-          </div>
-          <span class="text-[10px] text-zinc-600">${l.pipeline==='video-generation' ? '<i class=\"fas fa-video\"></i>' : '<i class=\"fas fa-image\"></i>'}</span>
-        </div>
-        <div class="mt-2 space-y-1.5">
-          <div class="flex gap-1">
-            <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate">${l.repo_url}</code>
-            <button data-copy-repo="${l.id}" class="icon-btn !w-7 !h-7" title="Copy repo URL"><i class="fas fa-copy text-[10px]"></i></button>
-            <button data-fill-repo="${l.id}" class="btn-primary-sm !px-2 !py-1 text-[10px]">Fill</button>
-          </div>
-          <div class="flex gap-1">
-            <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate">${l.file_url}</code>
-            <button data-copy-file="${l.id}" class="icon-btn !w-7 !h-7" title="Copy .safetensors URL"><i class="fas fa-file text-[10px]"></i></button>
-            <button data-fill-file="${l.id}" class="btn-secondary !px-2 !py-1 text-[10px]">Fill file</button>
-          </div>
-        </div>
+
+            <div class="field-stack">
+              <label class="field-caption" for="tokenInput">Replicate API token</label>
+              <div class="token-row">
+                <input id="tokenInput" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="REPLICATE_API_TOKEN">
+                <button id="btnSaveToken" class="button button-secondary" type="button">Save</button>
+              </div>
+              <div class="inline-actions">
+                <button id="btnTestToken" class="button button-ghost" type="button">Test connection</button>
+                <span class="meta-chip">Saved to localStorage only</span>
+              </div>
+            </div>
+
+            <div class="group-tabs" role="tablist" aria-label="Filter models by media type">
+              <button class="group-tab is-active" data-group="all" type="button" role="tab" aria-selected="true">All</button>
+              <button class="group-tab" data-group="image" type="button" role="tab" aria-selected="false">Image</button>
+              <button class="group-tab" data-group="video" type="button" role="tab" aria-selected="false">Video</button>
+              <button class="group-tab" data-group="audio" type="button" role="tab" aria-selected="false">Audio</button>
+            </div>
+
+            <div class="field-stack">
+              <div class="search-row">
+                <label class="sr-only" for="modelSearch">Search models</label>
+                <div class="search-input-wrap">
+                  <i class="fas fa-search search-icon" aria-hidden="true"></i>
+                  <input id="modelSearch" class="input input-search" type="search" autocomplete="off" placeholder="Search models, families, or IDs">
+                </div>
+                <span id="modelCount" class="meta-chip">0 models</span>
+              </div>
+              <div id="modelList" class="model-list" role="listbox" aria-label="Available models"></div>
+            </div>
+
+            <div class="selected-model card card-nested">
+              <div class="selected-model__header">
+                <div>
+                  <p class="eyebrow">Selected</p>
+                  <h3 id="selectedModelName">Choose a model</h3>
+                </div>
+                <a id="modelPlaygroundLink" class="button button-ghost button-small" href="#" target="_blank" rel="noreferrer">Replicate</a>
+              </div>
+              <div class="selected-model__meta">
+                <span id="modelCategoryBadge" class="meta-chip">—</span>
+                <span id="modelVersionLabel" class="mono small-copy">—</span>
+              </div>
+              <p id="selectedModelDescription" class="muted-copy">Only schema-supported inputs are shown for the selected model.</p>
+              <div id="customModelNote" class="inline-banner inline-banner-warning hidden"></div>
+              <details class="disclosure">
+                <summary>Model details and parameter inventory</summary>
+                <div id="modelDetails" class="disclosure__body"></div>
+              </details>
+            </div>
+          </section>
+
+          <section class="card stack">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Assist</p>
+                <h2>Prompt helpers</h2>
+              </div>
+            </div>
+
+            <details class="disclosure" id="enhancerDisclosure">
+              <summary>AI prompt enhancer</summary>
+              <div class="disclosure__body stack">
+                <p class="muted-copy">Format optimization only. The app tries the configured Worker endpoint first, then falls back to the client-side provider chain if needed.</p>
+                <textarea id="enhancerInput" class="textarea textarea-compact" placeholder="Write a rough prompt to enhance..."></textarea>
+                <div id="enhancerContextPreview" class="context-preview hidden"></div>
+                <button id="btnEnhancePrompt" class="button button-secondary" type="button"><i class="fas fa-wand-magic-sparkles"></i> Enhance prompt</button>
+                <div class="stack gap-sm">
+                  <label class="field-caption" for="enhancerOutput">Enhanced prompt</label>
+                  <textarea id="enhancerOutput" class="textarea textarea-compact" readonly placeholder="Enhanced prompt will appear here..."></textarea>
+                  <div class="inline-actions wrap">
+                    <button id="btnUseEnhanced" class="button button-primary button-small" type="button">Use as main prompt</button>
+                    <button id="btnCopyEnhanced" class="button button-ghost button-small" type="button">Copy</button>
+                    <button id="btnSaveEnhanced" class="button button-ghost button-small" type="button">Save</button>
+                  </div>
+                  <p id="enhancerMeta" class="helper-copy">Select a model, enter a rough prompt, then enhance it for the current schema and media type.</p>
+                </div>
+              </div>
+            </details>
+
+            <details class="disclosure" id="loraDisclosure">
+              <summary>My HuggingFace LoRAs</summary>
+              <div class="disclosure__body stack">
+                <p class="muted-copy">Quick-fill LoRA URLs into compatible model fields like <code>extra_lora</code> or <code>lora_weights</code>. Private downloads are proxied by the Worker when configured.</p>
+                <div id="loraList" class="stack gap-sm"></div>
+              </div>
+            </details>
+
+            <details class="disclosure" id="savedDisclosure">
+              <summary>Saved prompts</summary>
+              <div class="disclosure__body stack">
+                <div class="inline-actions">
+                  <span class="helper-copy">Load a saved prompt and restore its saved parameter values.</span>
+                </div>
+                <div id="savedList" class="stack gap-sm"></div>
+              </div>
+            </details>
+          </section>
+        </aside>
+
+        <section class="stack main-column">
+          <section class="card stack">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Create</p>
+                <h2>Prompt</h2>
+              </div>
+              <div class="toolbar-actions">
+                <button id="btnSavePrompt" class="icon-button" type="button" aria-label="Save prompt"><i class="fas fa-bookmark"></i></button>
+                <button id="btnRandomPrompt" class="icon-button" type="button" aria-label="Random prompt example"><i class="fas fa-dice"></i></button>
+                <button id="btnClear" class="icon-button" type="button" aria-label="Clear prompt"><i class="fas fa-eraser"></i></button>
+              </div>
+            </div>
+            <label class="sr-only" for="promptInput">Main prompt</label>
+            <textarea id="promptInput" class="textarea" placeholder="Describe what you want to generate. Include a trigger word like ‘aznten’ when the selected LoRA requires it."></textarea>
+            <div class="composer-footer">
+              <div class="helper-copy"><span id="charCount">0 chars</span> · You can keep editing while a generation is running.</div>
+              <label class="checkbox-row" for="chkPreferWait">
+                <input id="chkPreferWait" type="checkbox" checked>
+                <span>Prefer: wait before polling</span>
+              </label>
+            </div>
+          </section>
+
+          <section id="paramsPanel" class="card stack hidden">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Tune</p>
+                <h2>Parameters</h2>
+              </div>
+              <div class="inline-actions wrap">
+                <span id="paramsCount" class="meta-chip">0 params</span>
+                <button id="btnResetDefaults" class="button button-ghost button-small" type="button">Reset defaults</button>
+                <button id="btnCopyParams" class="button button-ghost button-small" type="button">Copy params</button>
+              </div>
+            </div>
+
+            <div id="unrestrictedNote" class="inline-banner inline-banner-info hidden"></div>
+
+            <div id="primaryParams" class="param-grid"></div>
+
+            <details id="advancedParamsPanel" class="disclosure">
+              <summary><span>Advanced settings</span><span id="advancedCount" class="meta-chip">0</span></summary>
+              <div id="advancedParams" class="disclosure__body param-grid"></div>
+            </details>
+
+            <details class="disclosure">
+              <summary>Validation rules and API payload</summary>
+              <div class="disclosure__body stack">
+                <p class="muted-copy">The request body mirrors the selected model’s schema. Unsupported fields are hidden; enums, numeric ranges, and image URI inputs are constrained before submission.</p>
+                <div class="inline-actions wrap">
+                  <button id="btnCopyPayload" class="button button-ghost button-small" type="button">Copy JSON</button>
+                  <button id="btnCopyCurl" class="button button-ghost button-small" type="button">Copy curl</button>
+                </div>
+                <pre id="payloadPreview" class="payload-preview">{}</pre>
+              </div>
+            </details>
+          </section>
+
+          <section class="card action-card">
+            <div>
+              <p class="eyebrow">Generate</p>
+              <h2>Ready when you are</h2>
+              <p id="costValue" class="muted-copy">Choose a model to prepare the request payload.</p>
+            </div>
+            <button id="btnGenerate" class="button button-primary button-xl" type="button" disabled>
+              <span id="genBtnText"><i class="fas fa-play"></i> Generate on Replicate</span>
+              <span id="genBtnSpinner" class="button-spinner hidden" aria-hidden="true"></span>
+            </button>
+          </section>
+
+          <section id="statusCard" class="card stack">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Prediction</p>
+                <h2>Job status</h2>
+              </div>
+              <button id="btnCancel" class="button button-secondary button-small hidden" type="button">Cancel</button>
+            </div>
+
+            <div class="status-track" aria-hidden="true">
+              <span class="status-step is-current" data-stage-chip="queued">Queued</span>
+              <span class="status-step" data-stage-chip="processing">Processing</span>
+              <span class="status-step" data-stage-chip="succeeded">Complete</span>
+            </div>
+
+            <div class="status-body" aria-live="polite">
+              <div class="status-headline">
+                <span id="statusBadge" class="status-badge status-idle">Idle</span>
+                <strong id="statusText">Nothing running yet</strong>
+              </div>
+              <p id="statusDetail" class="muted-copy">Select a model, add a prompt, and start a generation.</p>
+              <p id="statusMeta" class="mono small-copy"></p>
+            </div>
+
+            <div id="progressWrap" class="progress-wrap hidden" aria-hidden="true">
+              <div id="progressBar" class="progress-bar"></div>
+            </div>
+
+            <details id="statusLogsWrap" class="disclosure hidden">
+              <summary>Logs</summary>
+              <div class="disclosure__body">
+                <pre id="statusLogs" class="status-logs"></pre>
+              </div>
+            </details>
+          </section>
+
+          <section id="outputCard" class="card stack">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Result</p>
+                <h2>Output</h2>
+              </div>
+              <div class="inline-actions wrap">
+                <button id="btnCopyUrl" class="button button-ghost button-small" type="button" disabled>Copy URL</button>
+                <button id="btnDownload" class="button button-ghost button-small" type="button" disabled>Open file</button>
+                <button id="btnOpenNew" class="button button-ghost button-small" type="button" disabled>Open raw</button>
+              </div>
+            </div>
+            <div id="outputContent" class="output-content">
+              <div class="empty-state">
+                <i class="fas fa-photo-film" aria-hidden="true"></i>
+                <strong>Your next image or video will appear here.</strong>
+                <p>Pending generations show a skeleton preview so the page stays stable while Replicate works.</p>
+              </div>
+            </div>
+            <div id="outputMeta" class="meta-list"></div>
+          </section>
+
+          <section class="card stack">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Recent</p>
+                <h2>Generation history</h2>
+              </div>
+            </div>
+            <div id="historyGrid" class="history-grid"></div>
+          </section>
+        </section>
       </div>
-    `).join('');
-    if(hint) hint.classList.remove('hidden');
-    // Wire copy/fill
-    list.querySelectorAll('[data-copy-repo]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id=btn.getAttribute('data-copy-repo');
-        const l=loras.find(x=>x.id===id);
-        if(l) copyText(l.repo_url, 'Repo URL');
-      });
-    });
-    list.querySelectorAll('[data-copy-file]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id=btn.getAttribute('data-copy-file');
-        const l=loras.find(x=>x.id===id);
-        if(l) copyText(l.file_url, 'File URL');
-      });
-    });
-    list.querySelectorAll('[data-copy-trigger]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id=btn.getAttribute('data-copy-trigger');
-        const l=loras.find(x=>x.id===id);
-        if(l && l.instance_prompt) copyText(l.instance_prompt, 'Trigger');
-      });
-    });
-    list.querySelectorAll('[data-fill-repo]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id=btn.getAttribute('data-fill-repo');
-        const l=loras.find(x=>x.id===id);
-        if(l) fillLoraForCurrentModel(l.repo_url, l.file_url);
-      });
-    });
-    list.querySelectorAll('[data-fill-file]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id=btn.getAttribute('data-fill-file');
-        const l=loras.find(x=>x.id===id);
-        if(l) fillLoraForCurrentModel(l.file_url, l.repo_url);
-      });
-    });
-  }
-  function initLoraPicker(){
-    const btn=$('btnToggleLoraList');
-    const list=$('loraList');
-    if(btn && list){
-      btn.addEventListener('click', ()=>{
-        const hidden=list.classList.contains('hidden');
-        if(hidden){
-          list.classList.remove('hidden');
-          $('loraHint')?.classList.remove('hidden');
-          btn.innerHTML='<i class="fas fa-chevron-up mr-1"></i> Hide LoRAs';
-          renderLoraList();
-        } else {
-          list.classList.add('hidden');
-          $('loraHint')?.classList.add('hidden');
-          btn.innerHTML='<i class="fas fa-chevron-down mr-1"></i> Show LoRAs';
-        }
-      });
-    }
-    // Also re-render when model changes to update Fill target hint
-    const origSelect = window.selectModel;
-    if(origSelect){
-      const prev=window.selectModel;
-      window.selectModel = async function(...a){
-        const r=await prev(...a);
-        // If lora list is visible, re-render to update suggested_target highlight
-        if(list && !list.classList.contains('hidden')) renderLoraList();
-        return r;
-      };
-    }
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initLoraPicker);
-  else initLoraPicker();
-})();
-</script>
+    </main>
+  </div>
+
+  <div id="appToast" class="toast hidden" aria-live="assertive" aria-atomic="true"></div>
+
+  <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-backdrop" data-close-modal="settingsModal"></div>
+    <div class="modal-card card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Settings</p>
+          <h2 id="settingsTitle">Prompt enhancer providers</h2>
+        </div>
+        <button id="closeSettingsModal" class="icon-button" type="button" aria-label="Close enhancer settings"><i class="fas fa-times"></i></button>
+      </div>
+      <p class="muted-copy">The enhancer tries Worker-backed configuration first, then falls back to locally stored providers. Reorder providers to adjust failover priority.</p>
+      <div id="llmProvidersList" class="stack gap-sm"></div>
+      <div class="inline-actions wrap push-end">
+        <button id="btnAddProvider" class="button button-ghost" type="button">Add provider</button>
+        <button id="btnCancelSettings" class="button button-secondary" type="button">Cancel</button>
+        <button id="btnSaveSettings" class="button button-primary" type="button">Save settings</button>
+      </div>
+      <p id="settingsStatus" class="helper-copy hidden"></p>
+    </div>
+  </div>
+
+  <div id="uploadModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
+    <div class="modal-backdrop" data-close-modal="uploadModal"></div>
+    <div class="modal-card card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Upload</p>
+          <h2 id="uploadTitle">Attach image input</h2>
+        </div>
+        <button id="closeUploadModal" class="icon-button" type="button" aria-label="Close upload modal"><i class="fas fa-times"></i></button>
+      </div>
+      <button id="dropZone" class="upload-dropzone" type="button">
+        <i class="fas fa-cloud-arrow-up" aria-hidden="true"></i>
+        <strong>Drag and drop an image</strong>
+        <span>Or browse for a local file to convert into a data URI.</span>
+      </button>
+      <label class="button button-ghost button-small file-picker-label" for="fileInput">Browse image</label>
+      <input id="fileInput" type="file" accept="image/*" class="sr-only">
+      <div class="divider"><span>or paste a URL</span></div>
+      <div class="token-row">
+        <input id="imageUrlInput" class="input" type="url" placeholder="https://example.com/image.png">
+        <button id="btnUseUrl" class="button button-secondary" type="button">Use URL</button>
+      </div>
+      <div id="uploadPreview" class="upload-preview hidden">
+        <img id="uploadPreviewImg" src="" alt="Selected upload preview">
+        <p id="uploadStatus" class="helper-copy"></p>
+      </div>
+      <div class="inline-actions wrap push-end">
+        <button id="btnCancelUpload" class="button button-secondary" type="button">Cancel</button>
+        <button id="btnConfirmUpload" class="button button-primary hidden" type="button">Use this image</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="addModelModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="addModelTitle">
+    <div class="modal-backdrop" data-close-modal="addModelModal"></div>
+    <div class="modal-card card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Catalog</p>
+          <h2 id="addModelTitle">Add custom Replicate model</h2>
+        </div>
+        <button id="closeAddModelModal" class="icon-button" type="button" aria-label="Close add model modal"><i class="fas fa-times"></i></button>
+      </div>
+      <p class="muted-copy">Paste <code>owner/name</code> or <code>owner/name:version</code>. Add the Input schema JSON manually or fetch it live with your token.</p>
+      <div class="field-stack">
+        <label class="field-caption" for="customModelId">Model identifier</label>
+        <input id="customModelId" class="input" type="text" placeholder="e.g. black-forest-labs/flux-dev">
+      </div>
+      <div class="field-stack">
+        <label class="field-caption" for="customModelSchema">Input schema JSON</label>
+        <textarea id="customModelSchema" class="textarea textarea-compact" placeholder='{ "properties": { "prompt": {"type":"string"} } }'></textarea>
+      </div>
+      <div class="inline-actions wrap push-end">
+        <button id="btnFetchSchema" class="button button-ghost" type="button">Fetch live schema</button>
+        <button id="btnAddCustomModel" class="button button-primary" type="button">Add model</button>
+      </div>
+      <p id="addModelStatus" class="helper-copy hidden"></p>
+    </div>
+  </div>
+
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
