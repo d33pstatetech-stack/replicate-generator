@@ -5,22 +5,25 @@ Orchestrate generative AI prompts on **Replicate.com** — schema-driven, like `
 - **Select a model** → parameters auto-populate **only** with fields that model actually supports.
 - **Constrained controls**: enums → dropdown, integers/numbers with `min`/`max` → clamped sliders/numbers, booleans → toggles, `format: uri` → upload-or-URL.
 - **Conditional params**: e.g. `width`/`height` only enabled when `aspect_ratio=custom` and `go_fast=false` (matches the AZNTEN schema). Video model proves we **block 4K when max is 1080p**.
-- **Single HTML file** — no build, Tailwind via CDN, Font Awesome.
+- **Buildless static app** — no bundler required. `public/index.html` loads shared `app.css`, `data.js`, and `app.js` assets directly in the browser.
 
 ## Quick start
 
-1. Open `index.html` (double-click or `npx serve .`).
-2. Paste your `REPLICATE_API_TOKEN` in the header (saved to `localStorage` only).
+1. Open `index.html` (redirects to `public/index.html`) or run `npx serve .`.
+2. Paste your `REPLICATE_API_TOKEN` into the Access & model panel (saved to `localStorage` only).
 3. Pick `d33pstatetech-stack/aznten_replicate` and type a prompt (include `aznten` trigger word).
-4. Tweak only the shown params — you can't pick an invalid resolution.
-5. Hit **Generate** (`Prefer: wait` + automatic poll fallback). `GET /v1/predictions/{id}` polls every 2.5s.
+4. Adjust the compact primary controls first, then expand Advanced settings only if needed.
+5. Hit **Generate**. The UI uses `Prefer: wait` when calling Replicate directly and polls `GET /v1/predictions/{id}` when the response stays asynchronous.
 
 ## Folder
 
 ```
 replicate-prompt-orchestrator/
-  index.html            # <-- the SPA source (synced to public/ for deploys)
-  public/index.html     # what wrangler / Docker actually serve
+  index.html            # lightweight redirect for local launches
+  public/index.html     # main SPA document served by Wrangler / Docker
+  public/app.css        # design tokens, responsive layout, reusable UI primitives
+  public/data.js        # embedded schemas, model catalog, LoRA metadata
+  public/app.js         # UI state, rendering, Replicate + enhancer request flows
   src/worker.js         # Cloudflare Worker: enhancer + Replicate/HF proxies
   wrangler.toml         # Worker config (assets: public/)
   Dockerfile            # static nginx image (BYOK, no secrets baked in)
