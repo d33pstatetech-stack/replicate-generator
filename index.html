@@ -348,7 +348,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
   <section class="panel" id="nsfwLoraPanel">
     <div class="flex items-center justify-between">
       <h2 class="panel-title !mb-0"><i class="fas fa-fire"></i> NSFW LoRAs — FLUX + Wan I2V</h2>
-      <span class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded-full">18 • NSFW</span>
+      <span class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded-full">17 • NSFW</span>
     </div>
     <p class="text-[11px] text-zinc-500 mt-1 mb-2">Top NSFW adapters, ranked by Hub likes 2026-09-11. FLUX.1-dev entries target <code class="bg-zinc-900 px-1 rounded">aznten-flux.1-dev-replicate</code> (<code>model=dev</code> → <code>extra_lora</code>); Wan 2.1 I2V entries Fill into <code>lora_weights</code> on the matching wavespeed 480p/720p model; Wan 2.2 I2V entries have no LoRA field in-catalog so Fill copies the URL. Same rules as above: use <code>huggingface.co/owner/repo</code> docs format or the direct file URL — never bare <code>owner/repo</code>. 18+ only.</p>
     <div class="flex gap-1.5 mb-2">
@@ -837,20 +837,6 @@ const NSFW_LORAS = [
     suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
     replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
     note: "34 likes · 33.1K downloads. Tagged ultra-realistic — realistic-anatomy pick. No documented trigger. 687 MB."
-  },
-  {
-    id: "Muapi/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu",
-    name: "detailed-perfection (anatomy fixer)",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "perfection style",
-    file: "detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu.safetensors",
-    repo_url: "https://huggingface.co/Muapi/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu",
-    file_url: "https://huggingface.co/Muapi/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu/resolve/main/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu.safetensors",
-    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
-    note: "2 likes · 996 downloads. Anatomy fixer (hands/feet/face/body), trigger 'perfection style'. Stack behind explicit adapters. 673 MB."
   },
   {
     id: "lopi999/Wan2.2-I2V_General-NSFW-LoRA",
