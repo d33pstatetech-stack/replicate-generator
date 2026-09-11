@@ -337,6 +337,22 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
   </div>
 </main>
 
+<!-- NSFW LoRA Picker — FLUX.1-dev adapters for aznten_replicate (18+) -->
+<div class="max-w-[1600px] mx-auto px-4 sm:px-6 pb-6">
+  <section class="panel" id="nsfwLoraPanel">
+    <div class="flex items-center justify-between">
+      <h2 class="panel-title !mb-0"><i class="fas fa-fire"></i> NSFW LoRAs — FLUX + Wan I2V</h2>
+      <span class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded-full">18 • NSFW</span>
+    </div>
+    <p class="text-[11px] text-zinc-500 mt-1 mb-2">Top NSFW adapters, ranked by Hub likes 2026-09-11. FLUX.1-dev entries target <code class="bg-zinc-900 px-1 rounded">aznten_replicate</code> (<code>model=dev</code> → <code>extra_lora</code>); Wan 2.1 I2V entries Fill into <code>lora_weights</code> on the wavespeed model; Wan 2.2 I2V entries have no LoRA field in-catalog so Fill copies the URL. Same rules as above: use <code>huggingface.co/owner/repo</code> docs format or the direct file URL — never bare <code>owner/repo</code>. 18+ only.</p>
+    <div class="flex gap-1.5 mb-2">
+      <button id="btnToggleNsfwLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show NSFW LoRAs</button>
+    </div>
+    <div id="nsfwLoraList" class="space-y-2 hidden"></div>
+    <div id="nsfwLoraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: FLUX entries Fill into <code>extra_lora</code> on <code>aznten_replicate</code> (<code>model=dev</code>); Wan 2.1 entries Fill into <code>lora_weights</code> on the wavespeed model; Wan 2.2 entries copy the URL (no LoRA field in-catalog).</div>
+  </section>
+</div>
+
 <!-- Mobile Enhancer (collapsible below main prompt, < xl) -->
 <div class="xl:hidden max-w-[1600px] mx-auto px-4 sm:px-6 pb-6">
   <section id="enhancerPanelMobile" class="panel">
@@ -668,6 +684,264 @@ const USER_LORAS = [
     suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights) or wan-2.2 variants",
     replicate_model: "wavespeedai/wan-2.1-t2v-480p",
     note: "Wan2.1 T2V LoRA — use as lora_weights on wavespeedai/wan-2.1-t2v-480p. Example: lora_weights=huggingface.co/D33pStateTech/asian-ten-wan21-lora"
+  }
+];
+
+// NSFW LoRA library — FLUX.1-dev adapters compatible with aznten_replicate
+// (model=dev → extra_lora). Sourced 2026-09-11 via HF MCP, ranked by likes.
+// All Public. 18+ only.
+const NSFW_LORAS = [
+  {
+    id: "xey/sldr_flux_nsfw_v2-studio",
+    name: "sldr_flux_nsfw_v2-studio",
+    base_model: "black-forest-labs/FLUX.1-dev",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "",
+    file: "sldr_flux_nsfw_v2-studio.safetensors",
+    repo_url: "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio",
+    file_url: "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio/resolve/main/sldr_flux_nsfw_v2-studio.safetensors",
+    suggested_target: "aznten_replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    note: "307 likes · 1.1M downloads. Photorealistic-NSFW adapter (Civitai source) — realistic-anatomy pick. No documented trigger; use descriptive prompting. 687 MB."
+  },
+  {
+    id: "lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
+    name: "Flux_Lustly.ai_Uncensored_nsfw_v1",
+    base_model: "black-forest-labs/FLUX.1-dev",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "",
+    file: "flux_lustly-ai_v1.safetensors",
+    repo_url: "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
+    file_url: "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1/resolve/main/flux_lustly-ai_v1.safetensors",
+    suggested_target: "aznten_replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    note: "275 likes · 155.5K downloads. General uncensored adapter with photorealistic gallery. No trigger word; descriptive prompts. 344 MB."
+  },
+  {
+    id: "lexa862/NSFWmodel",
+    name: "NSFWmodel",
+    base_model: "black-forest-labs/FLUX.1-dev",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "Nude",
+    file: "NSFW_master.safetensors",
+    repo_url: "https://huggingface.co/lexa862/NSFWmodel",
+    file_url: "https://huggingface.co/lexa862/NSFWmodel/resolve/main/NSFW_master.safetensors",
+    suggested_target: "aznten_replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    note: "78 likes · 459.7K downloads. Trigger 'Nude'. Lightest file of the set (172 MB), permissive unlicense."
+  },
+  {
+    id: "Keltezaa/NSFW_MASTER_FLUX",
+    name: "NSFW_MASTER_FLUX",
+    base_model: "black-forest-labs/FLUX.1-dev",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "NSFW",
+    file: "NSFW_master_Flux.safetensors",
+    repo_url: "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX",
+    file_url: "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX/resolve/main/NSFW_master_Flux.safetensors",
+    suggested_target: "aznten_replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    note: "68 likes · 30.3K downloads. Triggers: NSFW, Pussy, Vagina, Nude. MIT licensed. 172 MB."
+  },
+  {
+    id: "imagepipeline/flux_uncensored_nsfw_v2",
+    name: "flux_uncensored_nsfw_v2",
+    base_model: "black-forest-labs/FLUX.1-dev",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "",
+    file: "lora.safetensors",
+    repo_url: "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2",
+    file_url: "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2/resolve/main/lora.safetensors",
+    suggested_target: "aznten_replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    note: "34 likes · 33.1K downloads. Tagged ultra-realistic — realistic-anatomy pick. No documented trigger. 687 MB."
+  },
+  {
+    id: "Muapi/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu",
+    name: "detailed-perfection (anatomy fixer)",
+    base_model: "black-forest-labs/FLUX.1-dev",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "perfection style",
+    file: "detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu.safetensors",
+    repo_url: "https://huggingface.co/Muapi/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu",
+    file_url: "https://huggingface.co/Muapi/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu/resolve/main/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu.safetensors",
+    suggested_target: "aznten_replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    note: "2 likes · 996 downloads. Anatomy fixer (hands/feet/face/body), trigger 'perfection style'. Stack behind explicit adapters. 673 MB."
+  },
+  {
+    id: "lopi999/Wan2.2-I2V_General-NSFW-LoRA",
+    name: "Wan2.2-I2V General NSFW",
+    base_model: "Wan-AI/Wan2.2-I2V-A14B",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "nsfwsks",
+    file: "NSFW-22-H-e8.safetensors",
+    repo_url: "https://huggingface.co/lopi999/Wan2.2-I2V_General-NSFW-LoRA",
+    file_url: "https://huggingface.co/lopi999/Wan2.2-I2V_General-NSFW-LoRA/resolve/main/NSFW-22-H-e8.safetensors",
+    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "111 likes · 77.9K downloads. Foundation general-NSFW adapter for Wan 2.2 I2V, trigger 'nsfwsks'. High-noise file (613 MB); low-noise NSFW-22-L-e8 also in repo. Stack act LoRAs behind it."
+  },
+  {
+    id: "Aisha-AI-Official/wan2.2-rough-sex-anal",
+    name: "rough-sex-anal (Wan2.2)",
+    base_model: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "rough_anal_high_noise.safetensors",
+    repo_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-anal",
+    file_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-anal/resolve/main/rough_anal_high_noise.safetensors",
+    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "18 likes. Dual-stamped Wan 2.2 T2V + I2V. No trigger — descriptive prompt scripts with preview clips in card. 154 MB."
+  },
+  {
+    id: "Aisha-AI-Official/wan2.2-rough-sex-doggy-style",
+    name: "rough-sex-doggy (Wan2.2)",
+    base_model: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "rough_sex_doggy_000000170_high_noise.safetensors",
+    repo_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-doggy-style",
+    file_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-doggy-style/resolve/main/rough_sex_doggy_000000170_high_noise.safetensors",
+    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "12 likes. Dual-stamped Wan 2.2 T2V + I2V. No trigger — descriptive prompt scripts in card. 154 MB."
+  },
+  {
+    id: "Aisha-AI-Official/wan2.2-rough-sex-cowgirl",
+    name: "rough-sex-cowgirl (Wan2.2)",
+    base_model: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "bbc_sex_cowgirl_high_noise.safetensors",
+    repo_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-cowgirl",
+    file_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-cowgirl/resolve/main/bbc_sex_cowgirl_high_noise.safetensors",
+    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "5 likes. Stamped Wan 2.2 I2V. No trigger — descriptive prompt scripts in card. 154 MB."
+  },
+  {
+    id: "Aisha-AI-Official/wan2.2-rough-sex-sidefuck",
+    name: "rough-sex-sidefuck (Wan2.2)",
+    base_model: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "bbc_sex_sidefuck_high_noise.safetensors",
+    repo_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-sidefuck",
+    file_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-sidefuck/resolve/main/bbc_sex_sidefuck_high_noise.safetensors",
+    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "5 likes. Stamped Wan 2.2 I2V, side/spooning position. v2 file also in repo. No trigger. 154 MB."
+  },
+  {
+    id: "profpeng/wannsfw1",
+    name: "wannsfw1 (lopi999 mirror)",
+    base_model: "Wan-AI/Wan2.2-I2V-A14B",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "nsfwsks",
+    file: "NSFW-22-H-e8.safetensors",
+    repo_url: "https://huggingface.co/profpeng/wannsfw1",
+    file_url: "https://huggingface.co/profpeng/wannsfw1/resolve/main/NSFW-22-H-e8.safetensors",
+    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "2 likes. Byte-identical mirror of lopi999's files, same 'nsfwsks' trigger — fallback URL only."
+  },
+  {
+    id: "Market5/Wan_2.2-2.1_POV_Missionary-high",
+    name: "POV Missionary-high (Wan2.1)",
+    base_model: "Wan-AI/Wan2.1-I2V-14B-720P",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
+    repo_url: "https://huggingface.co/Market5/Wan_2.2-2.1_POV_Missionary-high",
+    file_url: "https://huggingface.co/Market5/Wan_2.2-2.1_POV_Missionary-high/resolve/main/wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
+    suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights)",
+    replicate_model: "wavespeedai/wan-2.1-t2v-480p",
+    note: "80 downloads. Stamped Wan 2.1 I2V 720P, missionary POV. No documented trigger. 307 MB."
+  },
+  {
+    id: "Market5/Double_Single_Handy_Blowjob",
+    name: "Handy Blowjob (Wan2.1)",
+    base_model: "Wan-AI/Wan2.1-I2V-14B-480P",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "wan_dr34mj0b_t2v.safetensors",
+    repo_url: "https://huggingface.co/Market5/Double_Single_Handy_Blowjob",
+    file_url: "https://huggingface.co/Market5/Double_Single_Handy_Blowjob/resolve/main/wan_dr34mj0b_t2v.safetensors",
+    suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights)",
+    replicate_model: "wavespeedai/wan-2.1-t2v-480p",
+    note: "36 downloads. Stamped Wan 2.1 I2V 480P. No documented trigger. 154 MB."
+  },
+  {
+    id: "Market5/Assertive_Cowgirl",
+    name: "Assertive Cowgirl (Wan2.1)",
+    base_model: "Wan-AI/Wan2.1-I2V-14B-720P",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
+    repo_url: "https://huggingface.co/Market5/Assertive_Cowgirl",
+    file_url: "https://huggingface.co/Market5/Assertive_Cowgirl/resolve/main/Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
+    suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights)",
+    replicate_model: "wavespeedai/wan-2.1-t2v-480p",
+    note: "20 downloads. Stamped Wan 2.1 I2V 720P (LOW variant also exists). No documented trigger. 307 MB."
+  },
+  {
+    id: "NSFWcode-com/NSFWcode_com_WAN22_ORAL_INSERTION_V01",
+    name: "WAN22 Oral Insertion",
+    base_model: "unstamped (name claims Wan 2.2)",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "NSFWcode_com_WAN22_ORAL_INSERTION_V02_HIGH.safetensors",
+    repo_url: "https://huggingface.co/NSFWcode-com/NSFWcode_com_WAN22_ORAL_INSERTION_V01",
+    file_url: "https://huggingface.co/NSFWcode-com/NSFWcode_com_WAN22_ORAL_INSERTION_V01/resolve/main/NSFWcode_com_WAN22_ORAL_INSERTION_V02_HIGH.safetensors",
+    suggested_target: "wan-2.2-i2v-fast (confirm base first — unstamped)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "1 like · 10.8K downloads. Oral. No base_model tag — verify Wan 2.2 I2V before use. V02 HIGH file (307 MB); V01 LOW also in repo. Docs off-site."
+  },
+  {
+    id: "redflagcitymayor/wan2.2-i2v-missionary-high-14b-lora",
+    name: "Missionary-high-14b (Wan2.2?)",
+    base_model: "unstamped (name claims Wan 2.2 I2V)",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "A naked man and a naked woman having sex. He thrusts his penis in and out of her vagina.",
+    file: "Wan2.2 - I2V - Missionary Sex - HIGH 14B.safetensors",
+    repo_url: "https://huggingface.co/redflagcitymayor/wan2.2-i2v-missionary-high-14b-lora",
+    file_url: "https://huggingface.co/redflagcitymayor/wan2.2-i2v-missionary-high-14b-lora/resolve/main/Wan2.2%20-%20I2V%20-%20Missionary%20Sex%20-%20HIGH%2014B.safetensors",
+    suggested_target: "wan-2.2-i2v-fast (confirm base first — unstamped)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "2.0K downloads, MIT. Trigger is a full sentence (see above). No base_model tag — verify before use. 613 MB; filename has spaces (URL-encoded)."
+  },
+  {
+    id: "otherwhere1/wan_i2v_pov_blowjob_v1.2",
+    name: "POV Blowjob v1.2 (Wan I2V?)",
+    base_model: "unstamped (name claims Wan I2V)",
+    pipeline: "video-generation",
+    private: false,
+    instance_prompt: "",
+    file: "wan_i2v_pov_blowjob_v1.2.safetensors",
+    repo_url: "https://huggingface.co/otherwhere1/wan_i2v_pov_blowjob_v1.2",
+    file_url: "https://huggingface.co/otherwhere1/wan_i2v_pov_blowjob_v1.2/resolve/main/wan_i2v_pov_blowjob_v1.2.safetensors",
+    suggested_target: "wan-2.2-i2v-fast or wan-2.1 model (confirm 2.1 vs 2.2 first)",
+    replicate_model: "wan-video/wan-2.2-i2v-fast",
+    note: "848 downloads. POV oral. No base_model tag and name is ambiguous on 2.1 vs 2.2 — confirm before use. No documented trigger. 359 MB."
   }
 ];
 
@@ -1890,11 +2164,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function fillLoraForCurrentModel(repoUrl){
     fillLoraValue(docsFormat(repoUrl), 'Docs-format LoRA');
   }
-  function renderLoraList(){
-    const list = $('loraList');
-    const hint = $('loraHint');
-    if(!list) return;
-    const loras = (typeof USER_LORAS!=='undefined') ? USER_LORAS : [];
+  function renderLoraListInto(listId, loras, hintId){
+    const list = $(listId);
+    const hint = hintId ? $(hintId) : null;
+    if(!list || !loras) return;
     list.innerHTML = loras.map(l => `
       <div class="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-violet-700/50 transition-colors">
         <div class="flex items-start justify-between gap-2">
@@ -1990,6 +2263,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
   }
+  function renderLoraList(){ renderLoraListInto('loraList', (typeof USER_LORAS!=='undefined') ? USER_LORAS : [], 'loraHint'); }
+  function renderNsfwLoraList(){ renderLoraListInto('nsfwLoraList', (typeof NSFW_LORAS!=='undefined') ? NSFW_LORAS : [], 'nsfwLoraHint'); }
   function initLoraPicker(){
     const btn=$('btnToggleLoraList');
     const list=$('loraList');
@@ -2008,6 +2283,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
         }
       });
     }
+    const nsfwBtn=$('btnToggleNsfwLoraList');
+    const nsfwList=$('nsfwLoraList');
+    if(nsfwBtn && nsfwList){
+      nsfwBtn.addEventListener('click', ()=>{
+        const hidden=nsfwList.classList.contains('hidden');
+        if(hidden){
+          nsfwList.classList.remove('hidden');
+          $('nsfwLoraHint')?.classList.remove('hidden');
+          nsfwBtn.innerHTML='<i class="fas fa-chevron-up mr-1"></i> Hide NSFW LoRAs';
+          renderNsfwLoraList();
+        } else {
+          nsfwList.classList.add('hidden');
+          $('nsfwLoraHint')?.classList.add('hidden');
+          nsfwBtn.innerHTML='<i class="fas fa-chevron-down mr-1"></i> Show NSFW LoRAs';
+        }
+      });
+    }
     // Also re-render when model changes to update Fill target hint
     const origSelect = window.selectModel;
     if(origSelect){
@@ -2016,6 +2308,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const r=await prev(...a);
         // If lora list is visible, re-render to update suggested_target highlight
         if(list && !list.classList.contains('hidden')) renderLoraList();
+        if(nsfwList && !nsfwList.classList.contains('hidden')) renderNsfwLoraList();
         return r;
       };
     }
