@@ -344,12 +344,12 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
       <h2 class="panel-title !mb-0"><i class="fas fa-fire"></i> NSFW LoRAs — FLUX + Wan I2V</h2>
       <span class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded-full">18 • NSFW</span>
     </div>
-    <p class="text-[11px] text-zinc-500 mt-1 mb-2">Top NSFW adapters, ranked by Hub likes 2026-09-11. FLUX.1-dev entries target <code class="bg-zinc-900 px-1 rounded">aznten_replicate</code> (<code>model=dev</code> → <code>extra_lora</code>); Wan 2.1 I2V entries Fill into <code>lora_weights</code> on the matching wavespeed 480p/720p model; Wan 2.2 I2V entries have no LoRA field in-catalog so Fill copies the URL. Same rules as above: use <code>huggingface.co/owner/repo</code> docs format or the direct file URL — never bare <code>owner/repo</code>. 18+ only.</p>
+    <p class="text-[11px] text-zinc-500 mt-1 mb-2">Top NSFW adapters, ranked by Hub likes 2026-09-11. FLUX.1-dev entries target <code class="bg-zinc-900 px-1 rounded">aznten-flux.1-dev-replicate</code> (<code>model=dev</code> → <code>extra_lora</code>); Wan 2.1 I2V entries Fill into <code>lora_weights</code> on the matching wavespeed 480p/720p model; Wan 2.2 I2V entries have no LoRA field in-catalog so Fill copies the URL. Same rules as above: use <code>huggingface.co/owner/repo</code> docs format or the direct file URL — never bare <code>owner/repo</code>. 18+ only.</p>
     <div class="flex gap-1.5 mb-2">
       <button id="btnToggleNsfwLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show NSFW LoRAs</button>
     </div>
     <div id="nsfwLoraList" class="space-y-2 hidden"></div>
-    <div id="nsfwLoraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: FLUX entries Fill into <code>extra_lora</code> on <code>aznten_replicate</code> (<code>model=dev</code>); Wan 2.1 entries Fill into <code>lora_weights</code> on the wavespeed model; Wan 2.2 entries copy the URL (no LoRA field in-catalog).</div>
+    <div id="nsfwLoraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: FLUX entries Fill into <code>extra_lora</code> on <code>aznten-flux.1-dev-replicate</code> (<code>model=dev</code>); Wan 2.1 entries Fill into <code>lora_weights</code> on the wavespeed model; Wan 2.2 entries copy the URL (no LoRA field in-catalog).</div>
   </section>
 </div>
 
@@ -466,6 +466,14 @@ const AZNTEN_SCHEMA = {
     "extra_lora_scale":{"type":"number","title":"Extra Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":20,"description":"Determines how strongly the extra LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."}
   }
 };
+
+// Standalone trained model — same wrapper as AZNTEN_SCHEMA plus the second
+// stacking slot (replicate_weights) from the live be6b57b0 schema (2026-09-11).
+const AZNTEN_DEV_REPLICATE_SCHEMA = (()=>{
+  const s = JSON.parse(JSON.stringify(AZNTEN_SCHEMA));
+  s.properties.replicate_weights = {"type":"string","title":"Replicate Weights","x-order":21,"description":"Load LoRA weights from a Replicate model (owner/name or owner/name/version). Second stacking slot alongside extra_lora."};
+  return s;
+})();
 
 // Other model schemas — subsets/deltas to prove per-model validation matters.
 const FLUX_SCHNELL_SCHEMA = {
@@ -764,8 +772,8 @@ const NSFW_LORAS = [
     file: "sldr_flux_nsfw_v2-studio.safetensors",
     repo_url: "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio",
     file_url: "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio/resolve/main/sldr_flux_nsfw_v2-studio.safetensors",
-    suggested_target: "aznten_replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
     note: "307 likes · 1.1M downloads. Photorealistic-NSFW adapter (Civitai source) — realistic-anatomy pick. No documented trigger; use descriptive prompting. 687 MB."
   },
   {
@@ -778,8 +786,8 @@ const NSFW_LORAS = [
     file: "flux_lustly-ai_v1.safetensors",
     repo_url: "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
     file_url: "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1/resolve/main/flux_lustly-ai_v1.safetensors",
-    suggested_target: "aznten_replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
     note: "275 likes · 155.5K downloads. General uncensored adapter with photorealistic gallery. No trigger word; descriptive prompts. 344 MB."
   },
   {
@@ -792,8 +800,8 @@ const NSFW_LORAS = [
     file: "NSFW_master.safetensors",
     repo_url: "https://huggingface.co/lexa862/NSFWmodel",
     file_url: "https://huggingface.co/lexa862/NSFWmodel/resolve/main/NSFW_master.safetensors",
-    suggested_target: "aznten_replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
     note: "78 likes · 459.7K downloads. Trigger 'Nude'. Lightest file of the set (172 MB), permissive unlicense."
   },
   {
@@ -806,8 +814,8 @@ const NSFW_LORAS = [
     file: "NSFW_master_Flux.safetensors",
     repo_url: "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX",
     file_url: "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX/resolve/main/NSFW_master_Flux.safetensors",
-    suggested_target: "aznten_replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
     note: "68 likes · 30.3K downloads. Triggers: NSFW, Pussy, Vagina, Nude. MIT licensed. 172 MB."
   },
   {
@@ -820,8 +828,8 @@ const NSFW_LORAS = [
     file: "lora.safetensors",
     repo_url: "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2",
     file_url: "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2/resolve/main/lora.safetensors",
-    suggested_target: "aznten_replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
     note: "34 likes · 33.1K downloads. Tagged ultra-realistic — realistic-anatomy pick. No documented trigger. 687 MB."
   },
   {
@@ -834,8 +842,8 @@ const NSFW_LORAS = [
     file: "detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu.safetensors",
     repo_url: "https://huggingface.co/Muapi/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu",
     file_url: "https://huggingface.co/Muapi/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu/resolve/main/detailed-perfection-style-hands-feet-face-body-all-in-one-xl-f1d-sd1.5-pony-illu.safetensors",
-    suggested_target: "aznten_replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten_replicate",
+    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
+    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
     note: "2 likes · 996 downloads. Anatomy fixer (hands/feet/face/body), trigger 'perfection style'. Stack behind explicit adapters. 673 MB."
   },
   {
@@ -1035,6 +1043,7 @@ const QWEN_IMAGE_SCHEMA = {
 
 const CATALOG = [
   { id:"d33pstatetech-stack/aznten_replicate", name:"AZNTEN Flux LoRA (dev/schnell)", group:"image", category:"Image · Flux LoRA", version:"d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453", description:"Flux-based LoRA trained with trigger word aznten. dev @28 steps quality, schnell @4 steps speed. Conditional width/height on aspect_ratio=custom, max 1440.", schema: AZNTEN_SCHEMA },
+  { id:"d33pstatetech-stack/aznten-flux.1-dev-replicate", name:"AZNTEN FLUX.1-dev (standalone)", group:"image", category:"Image · Flux LoRA", version:"d33pstatetech-stack/aznten-flux.1-dev-replicate:be6b57b05d69042bac4db99c9eebb22afcaf9e7aa3839cdd30e5cebd8c34d604", description:"Trained FLUX.1-dev LoRA as standalone model (2026-09-07) — baked weights, trigger word, lora_scale -1..3, extra_lora + replicate_weights stacking slots. Unrestricted by default.", schema: AZNTEN_DEV_REPLICATE_SCHEMA },
   { id:"black-forest-labs/flux-schnell", name:"FLUX.1 [schnell]", group:"image", category:"Image · FLUX", version:"black-forest-labs/flux-schnell:c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e", description:"Speed-optimized FLUX — 4 steps is enough. Latest 2025-06-25.", schema: FLUX_SCHNELL_SCHEMA },
   { id:"black-forest-labs/flux-dev", name:"FLUX.1 [dev]", group:"image", category:"Image · FLUX", version:"black-forest-labs/flux-dev:6e4a938f85952bdabcc15aa329178c4d681c52bf25a0342403287dc26944661d", description:"Quality FLUX — ~28 steps. Latest.", schema: (()=>{ const s=JSON.parse(JSON.stringify(FLUX_SCHNELL_SCHEMA)); s.properties.num_inference_steps.default=28; s.properties.num_inference_steps.maximum=50; s.properties.go_fast.default=false; s.properties.megapixels.enum=["1","0.25"]; return s;})() },
   { id:"krea/krea-2-large", name:"Krea 2 Large", group:"image", category:"Image · Krea", version:"krea/krea-2-large:eef77a68a7699844a7c324d8c2a1a158b84a77b7c1875ecb3eb0c1fbc16570a9", description:"Krea flagship — photorealism, added for D33pStateTech/d33pstateten LoRA (aznten, base Krea-2-Raw). Use style_reference_images for style; LoRA for local diffusers via HF URL.", schema: KREA_SCHEMA },
