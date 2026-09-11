@@ -1053,8 +1053,8 @@ const CATALOG = [
   { id:"alibaba/wan-3-prime", name:"WAN 3.0 Prime", group:"video", category:"Video · WAN 3.0", version:"alibaba/wan-3-prime:736267d3620794f7e744f46c814304617a16ff3d19e43ee70daa7bff87c7d150", description:"Wan 3.0 Prime — speed-optimized variant of Wan 3.0, same params (prompt, image, resolution, aspect_ratio, duration 2-30, prompt expansion). Up to 1080p/30s.", schema: WAN3_PRIME_SCHEMA },
   { id:"wan-video/wan-2.2-t2v-fast", name:"WAN 2.2 T2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-t2v-fast:c483b1f7b892065bc58ebadb6381abf557f6b1f517d2ff0febb3fb635cf49b4d", description:"Wan 2.2 T2V Fast — text-to-video, 480p 16:9/9:16, 81-121 frames, 5-30fps. For image-to-video use WAN 2.2 I2V Fast or WAN 3.0.", schema: WAN22_T2V_SCHEMA },
   { id:"wan-video/wan-2.2-i2v-fast", name:"WAN 2.2 I2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-i2v-fast:4eaf2b01d3bf70d8a2e00b219efeb7cb415855ad18b7dacdc4cae664a73a6eea", description:"Wan 2.2 I2V Fast — image-to-video, supports image + last_image, 480p, 81 frames. Fixed: was wan-2.1-t2v-14b (Model not found).", schema: WAN22_I2V_SCHEMA },
-  { id:"wavespeedai/wan-2.1-i2v-480p", name:"WAN 2.1 I2V 480p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-480p:e2870aa4965fd9ddfd87c16a3c8ab952c18e745e63f3f3b123c2dc8b538ad2b5", description:"WaveSpeed Wan 2.1 I2V 480p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 480P adapters.", schema: WAVESPEED_WAN21_I2V_480P_SCHEMA },
-  { id:"wavespeedai/wan-2.1-i2v-720p", name:"WAN 2.1 I2V 720p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-720p:1f0a7fa066689a087b597a314f60ef74d1a720fa1fb9a7083487c4b01db3395f", description:"WaveSpeed Wan 2.1 I2V 720p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 720P adapters.", schema: WAVESPEED_WAN21_I2V_720P_SCHEMA },
+  { id:"wavespeedai/wan-2.1-i2v-480p", name:"WAN 2.1 I2V 480p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-480p:e2870aa4965fd9ddfd87c16a3c8ab952c18e745e63f3f3b123c2dc8b538ad2b5", description:"WaveSpeed Wan 2.1 I2V 480p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 480P adapters. Note: WaveSpeed may still block explicit outputs provider-side even with NSFW enabled (observed 2026-09-11).", schema: WAVESPEED_WAN21_I2V_480P_SCHEMA },
+  { id:"wavespeedai/wan-2.1-i2v-720p", name:"WAN 2.1 I2V 720p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-720p:1f0a7fa066689a087b597a314f60ef74d1a720fa1fb9a7083487c4b01db3395f", description:"WaveSpeed Wan 2.1 I2V 720p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 720P adapters. Note: WaveSpeed may still block explicit outputs provider-side even with NSFW enabled (observed 2026-09-11).", schema: WAVESPEED_WAN21_I2V_720P_SCHEMA },
   { id:"wan-video/wan2.1-with-lora", name:"Wan 2.1 with LoRA", group:"video", category:"Video · WAN", version:"wan-video/wan2.1-with-lora:c48fa8ec65b13143cb552ab98ea17984eab9d70e9fe99479117de40a2a7f9ed0", description:"Wan 2.1 14b/1.3b T2V+I2V with lora_url + model/CLIP strength sliders. Use 14b for 14B LoRAs.", schema: WAN21_WITH_LORA_SCHEMA },
   { id:"wavespeedai/wan-2.1-t2v-480p", name:"WAVESPEED Wan 2.1 T2V 480p", group:"video", category:"Video · Wavespeed", version:"wavespeedai/wan-2.1-t2v-480p:7677a619127ea34d1ed873fb5b77448e4b9889fbd83809b44a2c459ace99192a", description:"WavespeedAI Wan 2.1 T2V 480p — I2V (image required) + T2V, 16:9/9:16, fast_mode Off/Balanced/Fast, sample_steps 1-40, lora_scale 0-4, disable_safety_checker for unrestricted.", schema: WAVESPEED_WAN21_T2V_SCHEMA },
 ];
@@ -1248,7 +1248,8 @@ function renderParams(){
     // conditional disable logic
     const depReason = dependencyWhy(name, spec);
     if(depReason) { g.classList.add('cond-disabled'); g.dataset.why=depReason; }
-    const label=`<div class="param-label">${spec.title||name.replace(/_/g,' ')}${req?'<span class="param-required">required</span>':''}</div>`;
+    const isNsfwToggle = (pType==='boolean' && name==='disable_safety_checker');
+    const label=`<div class="param-label">${isNsfwToggle?'NSFW Enabled':(spec.title||name.replace(/_/g,' '))}${req?'<span class="param-required">required</span>':''}</div>`;
     const desc=spec.description?`<p class="param-desc">${spec.description}</p>`:'';
     const depNote = depReason?`<div class="param-dep-note"><i class="fas fa-lock mr-1"></i>${depReason}</div>`:'';
     let control='';
@@ -1269,6 +1270,9 @@ function renderParams(){
       control=`<input type="number" class="input" data-param="${name}" value="${cur??''}" ${spec.minimum!==undefined?`min="${spec.minimum}"`:''} ${spec.maximum!==undefined?`max="${spec.maximum}"`:''} placeholder="${spec.title||name}">`;
     } else if(pType==='boolean'){
       control=`<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" data-param="${name}" ${cur?'checked':''} class="accent-violet-600"><span class="text-xs text-zinc-400">${cur?'Enabled':'Disabled'}</span></label>`;
+      if(name==='disable_safety_checker'){
+        control+=`<div class="text-[11px] font-semibold mt-1" data-nsfw-status>${cur?'<span class="text-emerald-300">NSFW content is ENABLED</span>':'<span class="text-red-400">NSFW content is DISABLED</span>'}</div>`;
+      }
     } else if(pType==='lora_url'){
       const isArr = spec.type==='array';
       const curVal = Array.isArray(cur) ? cur.join('\n') : (cur||'');
@@ -1383,7 +1387,7 @@ function wireParam(group, name, spec, pType){
   } else if(sel){
     const h=()=>{
       let v;
-      if(sel.type==='checkbox'){ v=sel.checked; sel.nextElementSibling.textContent=v?'Enabled':'Disabled'; }
+      if(sel.type==='checkbox'){ v=sel.checked; sel.nextElementSibling.textContent=v?'Enabled':'Disabled'; if(name==='disable_safety_checker'){ const st=group.querySelector('[data-nsfw-status]'); if(st) st.innerHTML = v?'<span class="text-emerald-300">NSFW content is ENABLED</span>':'<span class="text-red-400">NSFW content is DISABLED</span>'; } }
       else if(sel.type==='number'){ v= sel.value===''? undefined : (sel.step==='1' || spec.type==='integer' ? parseInt(sel.value) : parseFloat(sel.value)); if(v!==undefined && spec.minimum!==undefined && v<spec.minimum) v=spec.minimum; if(v!==undefined && spec.maximum!==undefined && v>spec.maximum) v=spec.maximum; }
       else { v= sel.value.trim() || undefined; if(v!==undefined && pType==='lora_url' && spec.type==='array'){ v = v.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean); if(!v.length) v=undefined; } }
       if(v===undefined || v==='') delete currentParams[name]; else currentParams[name]=v;
