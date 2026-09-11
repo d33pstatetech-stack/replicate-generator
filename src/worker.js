@@ -19,6 +19,7 @@ const PROTECTED_API_PREFIXES = []; // public — enhancer + replicate proxy use 
 
 const DEFAULT_LLM_PROVIDERS = [
   { baseUrl: 'https://api.venice.ai/api/v1', model: 'venice-uncensored', apiKey: '' },
+  { baseUrl: 'https://openrouter.ai/api/v1', model: 'liquid/lfm-2.5-2.6b:free', apiKey: '' },
   { baseUrl: 'https://openrouter.ai/api/v1', model: 'thinkingmachines/inkling:free', apiKey: '' },
   { baseUrl: 'https://openrouter.ai/api/v1', model: 'openrouter/free', apiKey: '' },
 ];
@@ -251,16 +252,19 @@ async function handleApiRoute(request, env, path) {
           const j = await llmRes.json();
           const content = j.choices?.[0]?.message?.content || j.choices?.[0]?.delta?.content || '';
           if (!content) { lastErr = 'Empty LLM response'; continue; }
+          // OpenRouter reports the underlying model (routers); Venice echoes its own.
+          const actualModel = j.model || p.model;
           const techniques = deriveTechniques(content, ctx);
           try {
             await DB.prepare('INSERT INTO prompts (kind, prompt, enhanced, model_id, params_json, llm_provider, llm_model) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(
-              isOptimize ? 'optimized' : 'enhanced', rawPrompt, content, modelId, JSON.stringify(userParams), baseUrl, p.model
+              isOptimize ? 'optimized' : 'enhanced', rawPrompt, content, modelId, JSON.stringify(userParams), baseUrl, actualModel
             ).run();
           } catch {}
-          return jsonResponse({ optimized_prompt: content, enhanced: content, techniques_applied: techniques, providerUsed: baseUrl, modelUsed: p.model, ctx });
+          return jsonResponse({ optimized_prompt: content, enhanced: content, techniques_applied: techniques, providerUsed: baseUrl, modelUsed: p.model, actualModel, ctx });
         } catch (e) { lastErr = e.message; continue; }
       }
       let fullEnhanced = '';
+      let actualModel = p.model;
       const streamHeaders = {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache',
@@ -278,12 +282,12 @@ async function handleApiRoute(request, env, path) {
           try {
             while (true) {
               const { done, value } = await reader.read();
-              if (done) {
-                if (fullEnhanced) {
-                  try {
-                    await DB.prepare('INSERT INTO prompts (kind, prompt, enhanced, model_id, params_json, llm_provider, llm_model) VALUES (?, ?, ?, ?, ?, ?, ?)').bind('enhanced', rawPrompt, fullEnhanced, modelId, JSON.stringify(userParams), baseUrl, p.model).run();
-                  } catch {}
-                }
+                if (done) {
+                  if (fullEnhanced) {
+                    try {
+                      await DB.prepare('INSERT INTO prompts (kind, prompt, enhanced, model_id, params_json, llm_provider, llm_model) VALUES (?, ?, ?, ?, ?, ?, ?)').bind('enhanced', rawPrompt, fullEnhanced, modelId, JSON.stringify(userParams), baseUrl, actualModel).run();
+                    } catch {}
+                  }
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                 controller.close(); break;
               }
@@ -295,7 +299,7 @@ async function handleApiRoute(request, env, path) {
                 if (!line.startsWith('data: ')) continue;
                 const d = line.slice(6).trim();
                 if (d === '[DONE]' || !d) continue;
-                try { const j = JSON.parse(d); const delta = j.choices?.[0]?.delta?.content || j.choices?.[0]?.delta?.reasoning_content || ''; if (delta) fullEnhanced += delta; } catch {}
+                try { const j = JSON.parse(d); const delta = j.choices?.[0]?.delta?.content || j.choices?.[0]?.delta?.reasoning_content || ''; if (delta) fullEnhanced += delta; if (j.model) actualModel = j.model; } catch {}
               }
             }
           } catch (e) { try { controller.error(e); } catch {} }
