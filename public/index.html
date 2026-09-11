@@ -264,6 +264,12 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
         </div>
         <div id="outputContent" class="output-content"></div>
         <div id="outputMeta" class="output-meta"></div>
+        <div class="mt-3 pt-2 border-t border-zinc-800 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+          <label class="inline-flex items-center gap-1.5 cursor-pointer" title="Replicate deletes output files ~1h after generation"><input type="checkbox" id="chkAutoSave" checked class="accent-violet-600"> Auto-save outputs</label>
+          <button id="btnSaveFolder" class="btn-secondary !px-2 !py-1 text-[10px]">Save folder: Downloads</button>
+          <span id="saveStatus" class="text-zinc-600"></span>
+          <button id="btnDownloadAll" class="btn-secondary !px-2 !py-1 text-[10px] ml-auto"><i class="fas fa-download mr-1"></i>Download all</button>
+        </div>
       </section>
 
       <section class="panel">
@@ -1521,6 +1527,7 @@ async function generate(){
       showStatus('Completed','Succeeded (Prefer: wait)',false);
       if(data.output) showOutput(data.output, data.metrics);
       addHistory(data.output); resetGenBtn(); logLines(data.logs);
+      if(data.output) saveOutputs(Array.isArray(data.output)?data.output:[data.output]);
     } else if(data.status==='failed'){
       renderFailure(data, input, null);
       if(/NSFW|safety/i.test(data.error||'')) toast('NSFW blocked — enable disable_safety_checker','error');
@@ -1560,6 +1567,7 @@ function poll(id){
       $('statusMeta').textContent=`id=${id}  ${elapsed}s elapsed`;
       if(d.status==='succeeded'){
         clearInterval(pollTimer); showStatus('Completed',`Done in ${elapsed}s`,false); logLines(d.logs); if(d.output) showOutput(d.output, d.metrics); addHistory(d.output); resetGenBtn(); updateProgress(100);
+        if(d.output) saveOutputs(Array.isArray(d.output)?d.output:[d.output]);
       } else if(d.status==='failed' || d.status==='canceled'){
         clearInterval(pollTimer);
         if(d.status==='failed'){ renderFailure(d, null, elapsed); toast('Failed — see diagnostics panel','error'); }
@@ -1574,10 +1582,10 @@ function poll(id){
 function resetGenBtn(){ const b=$('btnGenerate'); b.disabled=false; $('genBtnText').classList.remove('hidden'); $('genBtnSpinner').classList.add('hidden'); activePredId=null; }
 function showStatus(t,d,spin){ $('statusCard').classList.remove('hidden'); $('statusText').textContent=t; $('statusDetail').textContent=d; $('statusSpinner').classList.toggle('hidden',!spin); $('progressWrap').classList.toggle('hidden',!spin); }
 function updateProgress(p){ $('progressBar').style.width=p+'%'; }
-function hideOutput(){ $('outputCard').classList.add('hidden'); $('outputContent').innerHTML=''; $('outputMeta').innerHTML=''; delete $('outputCard').dataset.url; hideFailureDiag(); }
+function hideOutput(){ $('outputCard').classList.add('hidden'); $('outputContent').innerHTML=''; $('outputMeta').innerHTML=''; delete $('outputCard').dataset.url; delete $('outputCard').dataset.urls; if($('saveStatus')) $('saveStatus').textContent=''; hideFailureDiag(); }
 function showOutput(outputs, metrics){
   if(!outputs) return; const urls = Array.isArray(outputs)?outputs:[outputs]; const url=urls[0];
-  $('outputCard').classList.remove('hidden'); $('outputCard').dataset.url=url;
+  $('outputCard').classList.remove('hidden'); $('outputCard').dataset.url=url; $('outputCard').dataset.urls=JSON.stringify(urls);
   const isVideo = /(\.mp4|\.webm|\.mov)(\?|$)/i.test(url);
   if(isVideo) $('outputContent').innerHTML=`<video src="${url}" controls autoplay loop playsinline class="max-w-full max-h-[520px] rounded-xl"></video>`;
   else $('outputContent').innerHTML=`<img src="${url}" alt="output" class="max-w-full max-h-[520px] rounded-xl">`;
@@ -1663,6 +1671,60 @@ function renderSaved(){
   }));
 }
 
+// ---------- auto-save outputs (Replicate deletes files ~1h after generation) ----------
+// Download-only: files are written as bytes and never executed.
+const LS_AUTOSAVE='replicate_autosave';
+let saveDirHandle=null, saveDirName='';
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open('replicate_saver',1); r.onupgradeneeded=()=>r.result.createObjectStore('handles'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbGet(k){ try{ const db=await idbOpen(); return await new Promise((res,rej)=>{ const t=db.transaction('handles').objectStore('handles').get(k); t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); }); }catch{ return null; } }
+async function idbSet(k,v){ try{ const db=await idbOpen(); await new Promise((res,rej)=>{ const t=db.transaction('handles','readwrite').objectStore('handles').put(v,k); t.onsuccess=()=>res(); t.onerror=()=>rej(t.error); }); }catch{} }
+function saveFileName(url,i){
+  let ext=(url.split('?')[0].match(/\.([a-z0-9]{2,5})$/i)||[])[1]||'';
+  if(!/^(mp4|webm|mov|jpg|jpeg|png|webp|gif)$/i.test(ext)) ext = /mp4|webm|mov/i.test(url)?'mp4':'png';
+  const slug=(currentModel&&currentModel.id?currentModel.id.split('/').pop():'output').replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return `${slug}_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}_${i}.${ext.toLowerCase()}`;
+}
+async function downloadOne(url, filename){
+  const res=await fetch(url); if(!res.ok) throw new Error('HTTP '+res.status);
+  const blob=await res.blob();
+  if(saveDirHandle){
+    const q=await saveDirHandle.queryPermission({mode:'readwrite'});
+    const ok = q==='granted' ? true : (await saveDirHandle.requestPermission({mode:'readwrite'}))==='granted';
+    if(!ok) throw new Error('folder permission denied');
+    const fh=await saveDirHandle.getFileHandle(filename,{create:true});
+    const w=await fh.createWritable(); await w.write(blob); await w.close();
+    return 'folder';
+  }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
+  return 'downloads';
+}
+async function saveOutputs(urls, force){
+  const auto=(localStorage.getItem(LS_AUTOSAVE)??'1')==='1';
+  if(!urls||!urls.length) return;
+  if(!auto && !force) return;
+  const st=$('saveStatus'); let ok=0, dest='';
+  if(st) st.textContent=`Saving ${urls.length} file${urls.length>1?'s':''}…`;
+  for(let i=0;i<urls.length;i++){
+    try{ dest=await downloadOne(urls[i], saveFileName(urls[i],i)); ok++; }
+    catch(e){ console.warn('auto-save failed', urls[i], e); }
+  }
+  if(ok===urls.length){ if(st) st.textContent=`Saved ${ok}/${urls.length} → ${dest==='folder'?'folder “'+saveDirName+'”':'browser Downloads'}`; toast(`Saved ${ok} file${ok>1?'s':''} — stored only, never executed`,'success'); }
+  else { if(st) st.textContent=`Saved ${ok}/${urls.length} — some failed (expired/CORS?)`; toast(`Saved ${ok}/${urls.length} — open raw links and Save-as manually before the 1h expiry`,'error'); }
+}
+async function initAutoSave(){
+  const chk=$('chkAutoSave');
+  if(chk){ chk.checked=(localStorage.getItem(LS_AUTOSAVE)??'1')==='1'; chk.addEventListener('change',()=>{ localStorage.setItem(LS_AUTOSAVE, chk.checked?'1':'0'); toast('Auto-save '+(chk.checked?'ON — outputs download after each run':'OFF')); }); }
+  const bf=$('btnSaveFolder');
+  if(!window.showDirectoryPicker){ if(bf){ bf.disabled=true; bf.title='Folder picker needs Chrome/Edge (File System Access API) — files save to Downloads instead'; bf.textContent='Save folder: n/a'; } }
+  else if(bf){ bf.addEventListener('click', async()=>{ try{ const h=await window.showDirectoryPicker({mode:'readwrite'}); saveDirHandle=h; saveDirName=h.name||''; await idbSet('outputs',h); bf.textContent='Save folder: '+saveDirName; toast('Save folder set: '+saveDirName,'success'); }catch(e){ if(e&&e.name!=='AbortError') toast('Folder pick failed: '+e.message,'error'); } }); }
+  try{ const h=await idbGet('outputs'); if(h && h.name){ saveDirHandle=h; saveDirName=h.name; if(bf&&window.showDirectoryPicker) bf.textContent='Save folder: '+saveDirName; } }catch{}
+  const dl=$('btnDownloadAll');
+  if(dl) dl.addEventListener('click',()=>{ try{ const u=JSON.parse($('outputCard').dataset.urls||'[]'); if(u.length) saveOutputs(u,true); else toast('Nothing to download yet','error'); }catch{ toast('Nothing to download yet','error'); } });
+}
+
 // ---------- events ----------
 document.addEventListener('DOMContentLoaded', ()=>{
   // Protocol banner — robust, handles stale cache / http vs file
@@ -1684,7 +1746,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   $('btnDismissFileWarning')?.addEventListener('click', ()=> w?.classList.add('hidden'));
   $('btnCopyServeCmd')?.addEventListener('click',()=> navigator.clipboard.writeText('python -m http.server 8000').then(()=>toast('Copied: python -m http.server 8000')));
-  initToken(); filterByGroup(); renderDropdown(); loadHistory(); renderSaved(); updatePayloadPreview();
+  initToken(); filterByGroup(); renderDropdown(); loadHistory(); renderSaved(); updatePayloadPreview(); initAutoSave();
   // tabs
   document.querySelectorAll('.cat-tab').forEach(tab=> tab.addEventListener('click',()=>{
     document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active');
