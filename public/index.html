@@ -151,10 +151,14 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
       <!-- Quick LoRA Picker — HuggingFace (D33pStateTech) -->
       <section class="panel" id="loraQuickPanel">
         <div class="flex items-center justify-between">
-          <h2 class="panel-title !mb-0"><i class="fas fa-palette"></i> My HuggingFace LoRAs</h2>
-          <span class="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full">3 • HF</span>
+          <h2 class="panel-title !mb-0"><i class="fas fa-palette"></i> My LoRAs — HF + Replicate</h2>
+          <span class="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full">5 • HF + Replicate</span>
         </div>
         <p class="text-[11px] text-zinc-500 mt-1 mb-2">HF token detected for <code class="bg-zinc-900 px-1 rounded">D33pStateTech</code> — quick copy repo or <code>.safetensors</code> URL for <code>extra_lora</code> / <code>lora_weights</code>. <span class="text-emerald-300">No HF token entry needed in LoRA box</span> — <span class="text-amber-300">Private</span> is auto-proxied via Worker using <code>HUGGINGFACE_API_KEY</code> from <code>.env</code>.</p>
+        <div class="mb-2 bg-amber-950/40 border border-amber-800/60 rounded-lg px-3 py-2 text-[10px] text-amber-200/90 leading-relaxed">
+          <div class="font-semibold text-amber-300"><i class="fas fa-exclamation-triangle mr-1"></i>Replicate LoRA quirk — read before Filling</div>
+          <div class="mt-1">Bare <code>owner/repo</code> is misread as a <em>Replicate</em> model (loader fetches <code>replicate.com/…/_weights</code> → 404) and any other non-matching URL gets downloaded as a tarball → <code>unable to unpack tarball</code> / <code>Failed to download tarball</code>. Always use one of the three labeled formats below: <code>huggingface.co/owner/repo</code> (prefix required), direct <code>/resolve/main/*.safetensors</code> file URL (required when a repo holds 2+ .safetensors files), or the <code>.tar</code> from the training output page (always works). For future trainings, grab the <code>flux-lora.tar</code> download link from the output page.</div>
+        </div>
         <div class="flex gap-1.5 mb-2">
           <button id="btnToggleLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show LoRAs</button>
           <a href="https://huggingface.co/D33pStateTech" target="_blank" class="btn-secondary text-xs" title="Open HF profile"><i class="fas fa-external-link-alt"></i></a>
@@ -241,6 +245,12 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
         </div>
         <div id="progressWrap" class="progress-wrap hidden"><div id="progressBar" class="progress-bar"></div></div>
         <pre id="statusLogs" class="hidden mt-3 max-h-48 overflow-auto bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-[11px] text-zinc-400 whitespace-pre-wrap"></pre>
+        <details id="failDiagWrap" class="hidden mt-3 bg-zinc-950 border border-red-900/50 rounded-lg p-3">
+          <summary class="text-[11px] text-red-300 cursor-pointer font-semibold">Failure diagnostics — input sent, prediction link, copy all</summary>
+          <div id="failDiagMeta" class="text-[11px] text-zinc-400 mt-2 font-mono break-all"></div>
+          <pre id="failDiagInput" class="mt-2 max-h-48 overflow-auto bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-[10px] text-zinc-400 whitespace-pre-wrap break-all"></pre>
+          <button id="btnCopyFailDiag" class="btn-secondary mt-2 text-[11px]"><i class="fas fa-copy mr-1"></i>Copy diagnostics</button>
+        </details>
       </section>
 
       <section id="outputCard" class="panel hidden">
@@ -584,6 +594,7 @@ const USER_LORAS = [
     file: "aznten-flux.1-dev-replicate_Lora.safetensors",
     repo_url: "https://huggingface.co/D33pStateTech/aznten-flux.1-dev-replicate",
     file_url: "https://huggingface.co/D33pStateTech/aznten-flux.1-dev-replicate/resolve/main/aznten-flux.1-dev-replicate_Lora.safetensors",
+    replicate_tar_url: "https://replicate.delivery/xezq/PJlNCqSESLKaD98VaDIzJ9qwpfVb3daEz1xe9sHqvlUsfXWuA/flux-lora.tar",
     suggested_target: "d33pstatetech-stack/aznten_replicate (model=dev, extra_lora) or black-forest-labs/flux-dev",
     replicate_model: "d33pstatetech-stack/aznten_replicate",
     note: "FLUX.1-dev LoRA, trigger 'aznten'. Use as extra_lora on AZNTEN Flux LoRA model: paste huggingface.co/D33pStateTech/aznten-flux.1-dev-replicate"
@@ -1101,10 +1112,10 @@ async function generate(){
       if(data.output) showOutput(data.output, data.metrics);
       addHistory(data.output); resetGenBtn(); logLines(data.logs);
     } else if(data.status==='failed'){
-      const isNSFW = /NSFW|safety/i.test(data.error||'');
-      const hint = isNSFW ? ' — Tip: set disable_safety_checker=true (now defaults to true). Toggle it in Parameters, then Generate again. If still blocked, ensure payload shows \"disable_safety_checker\": true.' : '';
-      showStatus('Failed', (data.error||'Generation failed') + hint, false); logLines(data.logs); resetGenBtn();
-      if(isNSFW) toast('NSFW blocked — enable disable_safety_checker','error');
+      renderFailure(data, input, null);
+      if(/NSFW|safety/i.test(data.error||'')) toast('NSFW blocked — enable disable_safety_checker','error');
+      else if(/tarball|unpack/i.test(data.error||'')) toast('LoRA download failed — see diagnostics','error');
+      else toast('Failed — see diagnostics panel','error');
     } else {
       showStatus(capitalize(data.status), `Polling ${data.id} …`, true);
       poll(data.id);
@@ -1140,9 +1151,9 @@ function poll(id){
       if(d.status==='succeeded'){
         clearInterval(pollTimer); showStatus('Completed',`Done in ${elapsed}s`,false); logLines(d.logs); if(d.output) showOutput(d.output, d.metrics); addHistory(d.output); resetGenBtn(); updateProgress(100);
       } else if(d.status==='failed' || d.status==='canceled'){
-        const isNSFW = /NSFW|safety/i.test(d.error||'');
-        const hint = isNSFW ? ' — Unblock: set disable_safety_checker=true (now defaults true).' : '';
-        clearInterval(pollTimer); showStatus(d.status==='failed'?'Failed':'Canceled', (d.error||d.status)+hint, false); logLines(d.logs); resetGenBtn();
+        clearInterval(pollTimer);
+        if(d.status==='failed'){ renderFailure(d, null, elapsed); toast('Failed — see diagnostics panel','error'); }
+        else { showStatus('Canceled', d.error||d.status, false); logLines(d.logs); resetGenBtn(); }
       } else {
         showStatus(capitalize(d.status), `${elapsed}s elapsed`, true); logLines(d.logs);
         const pct = d.status==='processing'?60:d.status==='starting'?20:40; updateProgress(pct);
@@ -1153,7 +1164,7 @@ function poll(id){
 function resetGenBtn(){ const b=$('btnGenerate'); b.disabled=false; $('genBtnText').classList.remove('hidden'); $('genBtnSpinner').classList.add('hidden'); activePredId=null; }
 function showStatus(t,d,spin){ $('statusCard').classList.remove('hidden'); $('statusText').textContent=t; $('statusDetail').textContent=d; $('statusSpinner').classList.toggle('hidden',!spin); $('progressWrap').classList.toggle('hidden',!spin); }
 function updateProgress(p){ $('progressBar').style.width=p+'%'; }
-function hideOutput(){ $('outputCard').classList.add('hidden'); $('outputContent').innerHTML=''; $('outputMeta').innerHTML=''; delete $('outputCard').dataset.url; }
+function hideOutput(){ $('outputCard').classList.add('hidden'); $('outputContent').innerHTML=''; $('outputMeta').innerHTML=''; delete $('outputCard').dataset.url; hideFailureDiag(); }
 function showOutput(outputs, metrics){
   if(!outputs) return; const urls = Array.isArray(outputs)?outputs:[outputs]; const url=urls[0];
   $('outputCard').classList.remove('hidden'); $('outputCard').dataset.url=url;
@@ -1167,7 +1178,51 @@ function showOutput(outputs, metrics){
   $('outputMeta').innerHTML=`<span><i class="fas fa-clock"></i> ${metrics?.predict_time?metrics.predict_time.toFixed(2)+'s predict':''}</span><span><i class="fas fa-images"></i> ${urls.length} output${urls.length>1?'s':''}</span><span class="ml-auto"><a href="${url}" target="_blank" class="text-violet-400 hover:underline">Open raw</a></span>`;
 }
 function logLines(logs){ if(!logs) return; const el=$('statusLogs'); el.classList.remove('hidden'); el.textContent=String(logs).slice(-4000); el.scrollTop=el.scrollHeight; }
+function logLinesFull(logs){ const el=$('statusLogs'); el.classList.remove('hidden'); el.textContent=String(logs||'(no logs returned)'); el.scrollTop=el.scrollHeight; }
 function capitalize(s){ return s? s.charAt(0).toUpperCase()+s.slice(1):''; }
+// Verbose failure diagnostics — maps common errors (esp. LoRA/tarball) to causes + fixes
+function failureHint(err){
+  const e = String(err||'');
+  if(/unpack.+tarball|failed to download tarball|no .safetensors file found in tarball|multiple .safetensors files found/i.test(e)){
+    return 'LoRA download failed. Causes: (1) bare `owner/repo` was read as a *Replicate* model — always use the `huggingface.co/owner/repo` prefix; (2) repo holds 2+ .safetensors files — use the Direct file URL with the exact filename; (3) URL points at an HTML page, not weights. Fixes: re-Fill from the LoRA dropdown (Docs format / Direct file), or use the Replicate .tar from the training output page. See the amber quirk note in My LoRAs.';
+  }
+  if(/failed to parse.*huggingface|failed to parse url/i.test(e)){
+    return 'LoRA URL not recognized. Use `huggingface.co/owner/repo`, `huggingface.co/owner/repo/file.safetensors`, a direct `*.safetensors` URL, or a Replicate `.tar` URL — re-Fill from the LoRA dropdown.';
+  }
+  if(/NSFW|safety/i.test(e)){
+    return 'Tip: set disable_safety_checker=true (now defaults to true). Toggle it in Parameters, then Generate again. If still blocked, ensure payload shows "disable_safety_checker": true.';
+  }
+  if(/429|throttl|rate limit|retry_after/i.test(e)){
+    return 'Rate limited (low credit balance throttles to ~6 req/min). Wait for the retry window, or add credit at replicate.com/account.';
+  }
+  if(/422|validation|additional property|is required/i.test(e)){
+    return 'Input rejected by the model schema. Check the API Payload panel — a param is missing, mistyped, or not allowed for this model version.';
+  }
+  if(/401|unauthorized|invalid.*token|authentication/i.test(e)){
+    return 'Auth failed. Re-save REPLICATE_API_TOKEN (header key field) or set it as a Worker secret, then press Test.';
+  }
+  return '';
+}
+function renderFailure(data, input, elapsed){
+  const err = data.error || data.detail || 'Generation failed';
+  const hint = failureHint(err);
+  const id = data.id || activePredId || '';
+  const web = id ? `https://replicate.com/p/${id}` : '';
+  showStatus('Failed', err + (hint ? ' — ' + hint : ''), false);
+  $('statusMeta').innerHTML = `id=${id}  model=${data.model||currentModel?.id||''}${elapsed?`  ${elapsed}s elapsed`:''}` + (web ? `  <a href="${web}" target="_blank" class="text-violet-400 hover:underline">open prediction ↗</a>` : '');
+  logLinesFull(data.logs);
+  // Input echo + copy-all diagnostics
+  const wrap=$('failDiagWrap');
+  if(wrap){
+    wrap.classList.remove('hidden');
+    $('failDiagMeta').textContent = `model=${data.model||currentModel?.id||''}  version=${currentModel?.version||''}  status=${data.status||'failed'}` + (web?`  ${web}`:'');
+    $('failDiagInput').textContent = JSON.stringify({ input: input||buildInput() }, null, 2);
+    $('failDiagWrap').dataset.diag = JSON.stringify({ id, web, model: data.model||currentModel?.id, version: currentModel?.version, error: err, logs: data.logs||null, input: input||buildInput() }, null, 2);
+  }
+  resetGenBtn();
+  return hint;
+}
+function hideFailureDiag(){ const w=$('failDiagWrap'); if(w){ w.classList.add('hidden'); w.dataset.diag=''; } }
 
 // ---------- history & saved ----------
 function loadHistory(){ try{ history=JSON.parse(localStorage.getItem(LS_HISTORY)||'[]'); renderHistory(); }catch{ history=[]; } }
@@ -1248,6 +1303,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('btnSavedPrompts').addEventListener('click',()=>{ $('savedPanel').classList.toggle('hidden'); if(!$('savedPanel').classList.contains('hidden')) renderSaved(); });
   $('btnHistoryClear').addEventListener('click',()=>{ if(confirm('Clear recent history?')){ history=[]; saveHistory(); renderHistory(); }});
   $('btnCopyPayload').addEventListener('click',()=> navigator.clipboard.writeText($('payloadPreview').textContent).then(()=>toast('Payload copied')));
+  $('btnCopyFailDiag')?.addEventListener('click',()=>{ const d=$('failDiagWrap')?.dataset.diag||''; if(d) navigator.clipboard.writeText(d).then(()=>toast('Diagnostics copied')); });
   $('btnCopyCurl').addEventListener('click',()=>{
     const payload=$('payloadPreview').textContent;
     const tok=getToken()||'$REPLICATE_API_TOKEN';
@@ -1716,12 +1772,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
       else alert(label + ' copied');
     });
   }
-  function fillLoraForCurrentModel(repoUrl, fileUrl){
+  // Docs format per replicate/cog-flux weights.py: the loader regex is
+  // ^(?:https?://)?huggingface\.co/([^/]+)/([^/]+)(?:/([^/]+\.safetensors))?/?$
+  // Bare `owner/repo` matches the *Replicate* shorthand instead → tarball 404.
+  function docsFormat(repoUrl){
+    const m = String(repoUrl||'').match(/huggingface\.co\/([^/]+\/[^/?#]+)/);
+    return m ? `huggingface.co/${m[1]}` : repoUrl;
+  }
+  function fillLoraValue(value, label){
     // Determine target field for current model
     const cur = (typeof currentModel!=='undefined'? currentModel : window.currentModel);
     const sch = (typeof currentSchema!=='undefined'? currentSchema : window.currentSchema);
     if(!cur || !sch){
-      copyText(repoUrl, 'Repo URL');
+      copyText(value, label||'LoRA value');
       return;
     }
     const props = sch.properties || {};
@@ -1741,20 +1804,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }
     }
     if(!targetKey){
-      copyText(repoUrl, 'Repo URL');
-      if(window.toast) toast('No LoRA text field for this model — copied repo URL. Paste into extra_lora/lora_weights');
+      copyText(value, label||'LoRA value');
+      if(window.toast) toast('No LoRA text field for this model — copied value. Paste into extra_lora/lora_weights');
       return;
     }
     // Find input element for that param
     const input = document.querySelector(`[data-param=\"${targetKey}\"]`);
-    // Also check for extra_lora vs lora_weights naming differences (x-order may be different)
-    const actualUrl = repoUrl; // HuggingFace repo URL works as: huggingface.co/user/repo
-    // For some models, they expect huggingface.co/... without https prefix? Provide as repoUrl
-    // Use file_url if model expects direct .safetensors URL (some do). Provide repoUrl by default, as it's most compatible.
-    let toFill = actualUrl;
-    // Special: for flux-asian-ten, the file is flux-asian-ten-v2-000024.safetensors, but repo URL is sufficient.
-    // For wan, file_url is asian_ten_wan21.safetensors
-    // We'll fill with repoUrl, and also show fileUrl as alternative
+    let toFill = value;
     if(input){
       input.value = toFill;
       input.dispatchEvent(new Event('input', {bubbles:true}));
@@ -1765,13 +1821,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
       } else if(window.currentParams){
         window.currentParams[targetKey]=toFill;
       }
-      if(window.toast) toast(`Filled ${targetKey} with ${repoUrl}`);
+      if(window.toast) toast(`Filled ${targetKey} with ${label||'LoRA value'}`);
       // Also update the param UI highlight
       input.focus();
       input.select();
     } else {
       copyText(toFill, targetKey);
     }
+  }
+  // Back-compat: old callers passed (repoUrl, fileUrl) — Fill now uses docs format
+  function fillLoraForCurrentModel(repoUrl){
+    fillLoraValue(docsFormat(repoUrl), 'Docs-format LoRA');
   }
   function renderLoraList(){
     const list = $('loraList');
@@ -1798,26 +1858,43 @@ document.addEventListener('DOMContentLoaded', ()=>{
           <span class="text-[10px] text-zinc-600">${l.pipeline==='video-generation' ? '<i class=\"fas fa-video\"></i>' : '<i class=\"fas fa-image\"></i>'}</span>
         </div>
         <div class="mt-2 space-y-1.5">
-          <div class="flex gap-1">
-            <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate">${l.repo_url}</code>
-            <button data-copy-repo="${l.id}" class="icon-btn !w-7 !h-7" title="Copy repo URL"><i class="fas fa-copy text-[10px]"></i></button>
-            <button data-fill-repo="${l.id}" class="btn-primary-sm !px-2 !py-1 text-[10px]">Fill</button>
+          <div class="flex gap-1 items-center">
+            <span class="text-[9px] text-zinc-500 w-14 shrink-0">Docs format</span>
+            <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate">${docsFormat(l.repo_url)}</code>
+            <button data-copy-docs="${l.id}" class="icon-btn !w-7 !h-7" title="Copy docs-format value"><i class="fas fa-copy text-[10px]"></i></button>
+            <button data-fill-docs="${l.id}" class="btn-primary-sm !px-2 !py-1 text-[10px]">Fill</button>
           </div>
-          <div class="flex gap-1">
+          <div class="flex gap-1 items-center">
+            <span class="text-[9px] text-zinc-500 w-14 shrink-0">Direct file</span>
             <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate">${l.file_url}</code>
             <button data-copy-file="${l.id}" class="icon-btn !w-7 !h-7" title="Copy .safetensors URL"><i class="fas fa-file text-[10px]"></i></button>
             <button data-fill-file="${l.id}" class="btn-secondary !px-2 !py-1 text-[10px]">Fill file</button>
           </div>
+          ${l.replicate_tar_url ? `
+          <div class="flex gap-1 items-center">
+            <span class="text-[9px] text-amber-400 w-14 shrink-0">Repl .tar</span>
+            <code class="flex-1 text-[10px] bg-zinc-950 border border-amber-900/60 rounded px-2 py-1 truncate">${l.replicate_tar_url}</code>
+            <button data-copy-tar="${l.id}" class="icon-btn !w-7 !h-7" title="Copy Replicate .tar URL"><i class="fas fa-box text-[10px]"></i></button>
+            <button data-fill-tar="${l.id}" class="btn-secondary !px-2 !py-1 text-[10px] !border-amber-800">Fill .tar</button>
+          </div>` : `
+          <div class="text-[9px] text-zinc-600">No Replicate .tar saved for this LoRA yet — grab <code>flux-lora.tar</code> from its training output page and send the link to add it here.</div>`}
         </div>
       </div>
     `).join('');
     if(hint) hint.classList.remove('hidden');
     // Wire copy/fill
-    list.querySelectorAll('[data-copy-repo]').forEach(btn=>{
+    list.querySelectorAll('[data-copy-docs]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const id=btn.getAttribute('data-copy-repo');
+        const id=btn.getAttribute('data-copy-docs');
         const l=loras.find(x=>x.id===id);
-        if(l) copyText(l.repo_url, 'Repo URL');
+        if(l) copyText(docsFormat(l.repo_url), 'Docs-format LoRA');
+      });
+    });
+    list.querySelectorAll('[data-copy-tar]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id=btn.getAttribute('data-copy-tar');
+        const l=loras.find(x=>x.id===id);
+        if(l && l.replicate_tar_url) copyText(l.replicate_tar_url, 'Replicate .tar URL');
       });
     });
     list.querySelectorAll('[data-copy-file]').forEach(btn=>{
@@ -1834,18 +1911,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
         if(l && l.instance_prompt) copyText(l.instance_prompt, 'Trigger');
       });
     });
-    list.querySelectorAll('[data-fill-repo]').forEach(btn=>{
+    list.querySelectorAll('[data-fill-docs]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const id=btn.getAttribute('data-fill-repo');
+        const id=btn.getAttribute('data-fill-docs');
         const l=loras.find(x=>x.id===id);
-        if(l) fillLoraForCurrentModel(l.repo_url, l.file_url);
+        if(l) fillLoraValue(docsFormat(l.repo_url), 'Docs-format LoRA');
       });
     });
     list.querySelectorAll('[data-fill-file]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const id=btn.getAttribute('data-fill-file');
         const l=loras.find(x=>x.id===id);
-        if(l) fillLoraForCurrentModel(l.file_url, l.repo_url);
+        if(l) fillLoraValue(l.file_url, 'Direct .safetensors URL');
+      });
+    });
+    list.querySelectorAll('[data-fill-tar]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id=btn.getAttribute('data-fill-tar');
+        const l=loras.find(x=>x.id===id);
+        if(l && l.replicate_tar_url) fillLoraValue(l.replicate_tar_url, 'Replicate .tar URL');
       });
     });
   }
