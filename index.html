@@ -152,7 +152,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
       <section class="panel" id="loraQuickPanel">
         <div class="flex items-center justify-between">
           <h2 class="panel-title !mb-0"><i class="fas fa-palette"></i> My LoRAs — HF + Replicate</h2>
-          <span class="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full">5 • HF + Replicate</span>
+          <span class="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full">6 • HF + Replicate</span>
         </div>
         <p class="text-[11px] text-zinc-500 mt-1 mb-2">HF token detected for <code class="bg-zinc-900 px-1 rounded">D33pStateTech</code> — quick copy repo or <code>.safetensors</code> URL for <code>extra_lora</code> / <code>lora_weights</code>. <span class="text-emerald-300">No HF token entry needed in LoRA box</span> — <span class="text-amber-300">Private</span> is auto-proxied via Worker using <code>HUGGINGFACE_API_KEY</code> from <code>.env</code>.</p>
         <div class="mb-2 bg-amber-950/40 border border-amber-800/60 rounded-lg px-3 py-2 text-[10px] text-amber-200/90 leading-relaxed">
@@ -614,6 +614,20 @@ const USER_LORAS = [
     note: "FLUX.1-schnell LoRA, trigger 'aznten'. Checkpoint variant aznten-flux-schnell-mimicpc-000004.safetensors also in repo. Use as extra_lora with model=schnell."
   },
   {
+    id: "D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
+    name: "aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
+    base_model: "Qwen/Qwen-Image-2512",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "aznten",
+    file: "aznten-Qwen-Image-2512-Lora-WaveSpeed-AI.safetensors",
+    repo_url: "https://huggingface.co/D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
+    file_url: "https://huggingface.co/D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI/resolve/main/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI.safetensors",
+    suggested_target: "qwen/qwen-image (lora_weights)",
+    replicate_model: "qwen/qwen-image",
+    note: "Qwen-Image-2512 LoRA, trigger 'aznten'. Use as lora_weights on qwen/qwen-image (T2I pipeline only). Docs format also accepted."
+  },
+  {
     id: "D33pStateTech/d33pstateten",
     name: "d33pstateten",
     base_model: "krea/Krea-2-Raw",
@@ -657,12 +671,38 @@ const USER_LORAS = [
   }
 ];
 
+const QWEN_IMAGE_SCHEMA = {
+  type:"object", title:"Input", required:["prompt"],
+  properties:{
+    prompt:{type:"string",title:"Prompt",x_order:0,description:"Prompt for generated image"},
+    enhance_prompt:{type:"boolean",title:"Enhance Prompt",default:false,x_order:1,description:"Enhance the prompt with positive magic."},
+    lora_weights:{type:"string",format:"uri",title:"Lora Weights",x_order:2,nullable:true,description:"Load LoRA weights. Supports arbitrary .safetensors URLs, tar files, and zip files (e.g. https://huggingface.co/.../resolve/main/*.safetensors). T2I pipeline only."},
+    replicate_weights:{type:"string",format:"uri",title:"Replicate Weights",x_order:3,nullable:true,description:"Load LoRA weights from Replicate training. T2I pipeline only."},
+    lora_scale:{type:"number",title:"Lora Scale",default:1,x_order:4,description:"Determines how strongly the main LoRA should be applied."},
+    extra_lora_weights:{type:"array",items:{type:"string",format:"uri"},title:"Extra Lora Weights",x_order:5,nullable:true,description:"Additional LoRA weights as an array of URLs, one per line."},
+    extra_lora_scale:{type:"array",items:{type:"number"},title:"Extra Lora Scale",x_order:6,nullable:true,description:"Scales for additional LoRAs. Must match the number of extra_lora_weights."},
+    image:{type:"string",format:"uri",title:"Image",x_order:7,description:"Input image for img2img pipeline"},
+    strength:{type:"number",title:"Strength",default:0.9,minimum:0,maximum:1,x_order:8,description:"Strength for img2img pipeline"},
+    negative_prompt:{type:"string",title:"Negative Prompt",default:" ",x_order:9,description:"Negative prompt for generated image"},
+    aspect_ratio:{enum:["1:1","16:9","9:16","4:3","3:4","3:2","2:3"],type:"string",title:"aspect_ratio",default:"16:9",x_order:10,description:"Aspect ratio for the generated image"},
+    image_size:{enum:["optimize_for_quality","optimize_for_speed"],type:"string",title:"image_size",default:"optimize_for_quality",x_order:11,description:"Image size for the generated image"},
+    go_fast:{type:"boolean",title:"Go Fast",default:true,x_order:12,description:"Run faster predictions with additional optimizations."},
+    num_inference_steps:{type:"integer",title:"Num Inference Steps",default:30,minimum:1,maximum:50,x_order:13,description:"Number of denoising steps. Recommended 28-50."},
+    guidance:{type:"number",title:"Guidance",default:3,minimum:0,maximum:10,x_order:14,description:"Guidance for generated image."},
+    seed:{type:"integer",title:"Seed",x_order:15,description:"Random seed. Set for reproducible generation"},
+    output_format:{enum:["webp","jpg","png"],type:"string",title:"output_format",default:"webp",x_order:16,description:"Format of the output images"},
+    output_quality:{type:"integer",title:"Output Quality",default:80,minimum:0,maximum:100,x_order:17,description:"Quality 0-100. Not relevant for .png"},
+    disable_safety_checker:{type:"boolean",title:"Disable Safety Checker",default:true,description:"Bypass NSFW filter",x_order:18}
+  }
+};
+
 const CATALOG = [
   { id:"d33pstatetech-stack/aznten_replicate", name:"AZNTEN Flux LoRA (dev/schnell)", group:"image", category:"Image · Flux LoRA", version:"d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453", description:"Flux-based LoRA trained with trigger word aznten. dev @28 steps quality, schnell @4 steps speed. Conditional width/height on aspect_ratio=custom, max 1440.", schema: AZNTEN_SCHEMA },
   { id:"black-forest-labs/flux-schnell", name:"FLUX.1 [schnell]", group:"image", category:"Image · FLUX", version:"black-forest-labs/flux-schnell:c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e", description:"Speed-optimized FLUX — 4 steps is enough. Latest 2025-06-25.", schema: FLUX_SCHNELL_SCHEMA },
   { id:"black-forest-labs/flux-dev", name:"FLUX.1 [dev]", group:"image", category:"Image · FLUX", version:"black-forest-labs/flux-dev:6e4a938f85952bdabcc15aa329178c4d681c52bf25a0342403287dc26944661d", description:"Quality FLUX — ~28 steps. Latest.", schema: (()=>{ const s=JSON.parse(JSON.stringify(FLUX_SCHNELL_SCHEMA)); s.properties.num_inference_steps.default=28; s.properties.num_inference_steps.maximum=50; s.properties.go_fast.default=false; s.properties.megapixels.enum=["1","0.25"]; return s;})() },
   { id:"krea/krea-2-large", name:"Krea 2 Large", group:"image", category:"Image · Krea", version:"krea/krea-2-large:eef77a68a7699844a7c324d8c2a1a158b84a77b7c1875ecb3eb0c1fbc16570a9", description:"Krea flagship — photorealism, added for D33pStateTech/d33pstateten LoRA (aznten, base Krea-2-Raw). Use style_reference_images for style; LoRA for local diffusers via HF URL.", schema: KREA_SCHEMA },
   { id:"stability-ai/sdxl", name:"SDXL", group:"image", category:"Image · Stable Diffusion", version:"stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc", description:"1024px SDXL — width/height up to 2048, latest 7762fd07.", schema: SDXL_SCHEMA },
+  { id:"qwen/qwen-image", name:"Qwen-Image (LoRA-capable)", group:"image", category:"Image · Qwen", version:"qwen/qwen-image:0bba9e70f78437359725e0989ead45ca8b09e6c12a070dfe9a09e6856b43a44d", description:"Qwen-Image with lora_weights / extra_lora_weights slots — Replicate-side target for Qwen LoRAs (e.g. aznten-Qwen-Image-2512). T2I pipeline only for LoRA.", schema: QWEN_IMAGE_SCHEMA },
   { id:"alibaba/wan-3", name:"WAN 3.0", group:"video", category:"Video · WAN 3.0", version:"alibaba/wan-3:bb8bf2a1273cabad48e6c566ad7112e06bbc6ccf39684ffd81b618822735f056", description:"Alibaba Wan 3.0 — text-to-video + image-to-video, cinematic motion, 480p/720p/1080p, 2-30s, adaptive or 16:9/9:16/1:1/4:3/3:4. 50% off until Aug 30. From replicate_docs/wan3-llms.txt + live API.", schema: WAN3_SCHEMA },
   { id:"alibaba/wan-3-prime", name:"WAN 3.0 Prime", group:"video", category:"Video · WAN 3.0", version:"alibaba/wan-3-prime:736267d3620794f7e744f46c814304617a16ff3d19e43ee70daa7bff87c7d150", description:"Wan 3.0 Prime — speed-optimized variant of Wan 3.0, same params (prompt, image, resolution, aspect_ratio, duration 2-30, prompt expansion). Up to 1080p/30s.", schema: WAN3_PRIME_SCHEMA },
   { id:"wan-video/wan-2.2-t2v-fast", name:"WAN 2.2 T2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-t2v-fast:c483b1f7b892065bc58ebadb6381abf557f6b1f517d2ff0febb3fb635cf49b4d", description:"Wan 2.2 T2V Fast — text-to-video, 480p 16:9/9:16, 81-121 frames, 5-30fps. For image-to-video use WAN 2.2 I2V Fast or WAN 3.0.", schema: WAN22_T2V_SCHEMA },
@@ -826,6 +866,11 @@ function renderModelDetails(){
 
 // ---------- param rendering ----------
 function paramType(name, spec){
+  // LoRA/weight URLs must NEVER render as image upload zones (a data-URI'd
+  // multi-hundred-MB .safetensors would hang the tab) — always URL text inputs.
+  // (*_scale numeric fields are excluded — they render as plain numbers/arrays.)
+  const _n = (name||'').toLowerCase();
+  if((_n.includes('lora') || _n.includes('weight')) && !_n.includes('scale')) return 'lora_url';
   if(spec.format==='uri' || spec['x-format']==='uri' || name==='image' || name==='mask' || name==='image_url') return 'image';
   if(spec.type==='array' && spec.items?.format==='uri') return 'image_array';
   if(spec.enum && spec.enum.length) return 'select';
@@ -875,6 +920,13 @@ function renderParams(){
       control=`<input type="number" class="input" data-param="${name}" value="${cur??''}" ${spec.minimum!==undefined?`min="${spec.minimum}"`:''} ${spec.maximum!==undefined?`max="${spec.maximum}"`:''} placeholder="${spec.title||name}">`;
     } else if(pType==='boolean'){
       control=`<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" data-param="${name}" ${cur?'checked':''} class="accent-violet-600"><span class="text-xs text-zinc-400">${cur?'Enabled':'Disabled'}</span></label>`;
+    } else if(pType==='lora_url'){
+      const isArr = spec.type==='array';
+      const curVal = Array.isArray(cur) ? cur.join('\n') : (cur||'');
+      control = isArr
+        ? `<textarea class="input" data-param="${name}" rows="2" placeholder="One LoRA URL per line">${escapeHtml(curVal)}</textarea>`
+        : `<input type="text" class="input" data-param="${name}" value="${escapeHtml(curVal)}" placeholder="huggingface.co/owner/repo or .safetensors URL">`;
+      control+=`<div class="text-[10px] text-zinc-600 mt-1">LoRA URL — Docs format, Direct file, or Replicate .tar (see My LoRAs). Never upload a .safetensors file here.</div>`;
     } else {
       // string
       const isLong = (spec.description && spec.description.length>80) || name.includes('lora') || name.includes('prompt');
@@ -984,7 +1036,7 @@ function wireParam(group, name, spec, pType){
       let v;
       if(sel.type==='checkbox'){ v=sel.checked; sel.nextElementSibling.textContent=v?'Enabled':'Disabled'; }
       else if(sel.type==='number'){ v= sel.value===''? undefined : (sel.step==='1' || spec.type==='integer' ? parseInt(sel.value) : parseFloat(sel.value)); if(v!==undefined && spec.minimum!==undefined && v<spec.minimum) v=spec.minimum; if(v!==undefined && spec.maximum!==undefined && v>spec.maximum) v=spec.maximum; }
-      else { v= sel.value.trim() || undefined; }
+      else { v= sel.value.trim() || undefined; if(v!==undefined && pType==='lora_url' && spec.type==='array'){ v = v.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean); if(!v.length) v=undefined; } }
       if(v===undefined || v==='') delete currentParams[name]; else currentParams[name]=v;
       updatePayloadPreview(); applyConditionalState();
     };
@@ -1041,6 +1093,11 @@ function buildInput(){
       if(spec.type==='integer'){ const n=parseInt(input[k]); if(!isNaN(n)) input[k]=n; }
       else if(spec.type==='number'){ const n=Number(input[k]); if(!isNaN(n)) input[k]=n; }
       else if(spec.type==='boolean'){ input[k]= input[k]===true || input[k]==='true' || input[k]===1; }
+      else if(spec.type==='array' && typeof input[k]==='string'){
+        const arr=input[k].split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
+        if(spec.items && spec.items.type==='number'){ const nums=arr.map(Number); if(nums.length && nums.every(n=>!isNaN(n))) input[k]=nums; else delete input[k]; }
+        else if(arr.length) input[k]=arr; else delete input[k];
+      }
     }
   }
   return input;
