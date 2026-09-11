@@ -344,7 +344,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
       <h2 class="panel-title !mb-0"><i class="fas fa-fire"></i> NSFW LoRAs — FLUX + Wan I2V</h2>
       <span class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded-full">18 • NSFW</span>
     </div>
-    <p class="text-[11px] text-zinc-500 mt-1 mb-2">Top NSFW adapters, ranked by Hub likes 2026-09-11. FLUX.1-dev entries target <code class="bg-zinc-900 px-1 rounded">aznten_replicate</code> (<code>model=dev</code> → <code>extra_lora</code>); Wan 2.1 I2V entries Fill into <code>lora_weights</code> on the wavespeed model; Wan 2.2 I2V entries have no LoRA field in-catalog so Fill copies the URL. Same rules as above: use <code>huggingface.co/owner/repo</code> docs format or the direct file URL — never bare <code>owner/repo</code>. 18+ only.</p>
+    <p class="text-[11px] text-zinc-500 mt-1 mb-2">Top NSFW adapters, ranked by Hub likes 2026-09-11. FLUX.1-dev entries target <code class="bg-zinc-900 px-1 rounded">aznten_replicate</code> (<code>model=dev</code> → <code>extra_lora</code>); Wan 2.1 I2V entries Fill into <code>lora_weights</code> on the matching wavespeed 480p/720p model; Wan 2.2 I2V entries have no LoRA field in-catalog so Fill copies the URL. Same rules as above: use <code>huggingface.co/owner/repo</code> docs format or the direct file URL — never bare <code>owner/repo</code>. 18+ only.</p>
     <div class="flex gap-1.5 mb-2">
       <button id="btnToggleNsfwLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show NSFW LoRAs</button>
     </div>
@@ -564,6 +564,69 @@ const WAVESPEED_WAN21_T2V_SCHEMA = {
     "negative_prompt": {"type": "string", "title": "Negative Prompt", "default": "", "x-order": 1, "description": "Negative prompt to avoid certain elements"},
     "sample_guide_scale": {"type": "number", "title": "Sample Guide Scale", "default": 5, "maximum": 10, "minimum": 1, "x-order": 6, "description": "Guidance scale for generation"},
     "disable_safety_checker": {"type": "boolean", "title": "Disable Safety Checker", "default": false, "x-order": 11, "description": "Disable safety checker for generated videos"}
+  }
+};
+
+// WaveSpeed Wan 2.1 I2V 480p — live schema (2026-09-11), version e2870aa4.
+// lora_weights takes docs-format huggingface.co/owner/repo or direct .safetensors URLs.
+const WAVESPEED_WAN21_I2V_480P_SCHEMA = {
+  type:"object", title:"Input", required:["prompt","image"],
+  properties:{
+    prompt:{type:"string",title:"Prompt",x_order:0,description:"Text prompt for image generation"},
+    negative_prompt:{type:"string",title:"Negative Prompt",default:"",x_order:1,description:"Negative prompt to avoid certain elements"},
+    aspect_ratio:{enum:["16:9","9:16"],type:"string",title:"aspect_ratio",default:"16:9",x_order:2,description:"Aspect ratio of the output video."},
+    image:{type:"string",format:"uri",title:"Image",x_order:3,description:"Image for use as the initial frame of the video."},
+    fast_mode:{enum:["Off","Balanced","Fast"],type:"string",title:"fast_mode",default:"Balanced",x_order:4,description:"Speed up generation with different levels of acceleration. Faster modes may degrade quality somewhat."},
+    seed:{type:"integer",title:"Seed",x_order:5,description:"Random seed. Set for reproducible generation"},
+    sample_guide_scale:{type:"number",title:"Sample Guide Scale",default:5,minimum:1,maximum:10,x_order:6,description:"Guidance scale for generation"},
+    sample_steps:{type:"integer",title:"Sample Steps",default:30,minimum:1,maximum:40,x_order:7,description:"Number of inference steps"},
+    sample_shift:{type:"integer",title:"Sample Shift",default:3,minimum:0,maximum:10,x_order:8,description:"Flow shift parameter for video generation"},
+    lora_weights:{type:"string",title:"Lora Weights",x_order:9,nullable:true,description:"Load LoRA weights. Supports HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet."},
+    lora_scale:{type:"number",title:"Lora Scale",default:1,minimum:0,maximum:4,x_order:10,description:"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1."},
+    disable_safety_checker:{type:"boolean",title:"Disable Safety Checker",default:false,x_order:11,description:"Disable safety checker for generated videos"}
+  }
+};
+
+// WaveSpeed Wan 2.1 I2V 720p — live schema (2026-09-11), version 1f0a7fa0.
+// Same inputs as 480p at higher resolution.
+const WAVESPEED_WAN21_I2V_720P_SCHEMA = {
+  type:"object", title:"Input", required:["prompt","image"],
+  properties:{
+    prompt:{type:"string",title:"Prompt",x_order:0,description:"Text prompt for image generation"},
+    negative_prompt:{type:"string",title:"Negative Prompt",default:"",x_order:1,description:"Negative prompt to avoid certain elements"},
+    aspect_ratio:{enum:["16:9","9:16"],type:"string",title:"aspect_ratio",default:"16:9",x_order:2,description:"Aspect ratio of the output video."},
+    image:{type:"string",format:"uri",title:"Image",x_order:3,description:"Image for use as the initial frame of the video."},
+    fast_mode:{enum:["Off","Balanced","Fast"],type:"string",title:"fast_mode",default:"Balanced",x_order:4,description:"Speed up generation with different levels of acceleration. Faster modes may degrade quality somewhat."},
+    seed:{type:"integer",title:"Seed",x_order:5,description:"Random seed. Set for reproducible generation"},
+    sample_guide_scale:{type:"number",title:"Sample Guide Scale",default:5,minimum:1,maximum:10,x_order:6,description:"Guidance scale for generation"},
+    sample_steps:{type:"integer",title:"Sample Steps",default:30,minimum:1,maximum:40,x_order:7,description:"Number of inference steps"},
+    sample_shift:{type:"integer",title:"Sample Shift",default:3,minimum:0,maximum:10,x_order:8,description:"Flow shift parameter for video generation"},
+    lora_weights:{type:"string",title:"Lora Weights",x_order:9,nullable:true,description:"Load LoRA weights. Supports HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet."},
+    lora_scale:{type:"number",title:"Lora Scale",default:1,minimum:0,maximum:4,x_order:10,description:"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1."},
+    disable_safety_checker:{type:"boolean",title:"Disable Safety Checker",default:false,x_order:11,description:"Disable safety checker for generated videos"}
+  }
+};
+
+// wan-video/wan2.1-with-lora — live schema (2026-09-11), version c48fa8ec.
+// Wan 2.1 14b/1.3b T2V+I2V with lora_url + separate model/CLIP strength sliders.
+const WAN21_WITH_LORA_SCHEMA = {
+  type:"object", title:"Input", required:["prompt"],
+  properties:{
+    prompt:{type:"string",title:"Prompt",x_order:0,description:"Text prompt for video generation"},
+    negative_prompt:{type:"string",title:"Negative Prompt",default:"",x_order:1,description:"Things you do not want to see in your video"},
+    image:{type:"string",format:"uri",title:"Image",x_order:2,nullable:true,description:"Image to use as a starting frame for image to video generation."},
+    aspect_ratio:{enum:["16:9","9:16","1:1"],type:"string",title:"aspect_ratio",default:"16:9",x_order:3,description:"The aspect ratio of the video."},
+    frames:{enum:[17,33,49,65,81],type:"integer",title:"Frames",default:81,x_order:4,description:"The number of frames to generate (1 to 5 seconds)"},
+    model:{enum:["1.3b","14b"],type:"string",title:"Model",default:"14b",x_order:5,description:"The model to use. 1.3b is faster, but 14b is better quality. Use 14b for 14B LoRAs."},
+    resolution:{enum:["480p","720p"],type:"string",title:"Resolution",default:"480p",x_order:6,description:"The resolution of the video. 720p is not supported for 1.3b."},
+    lora_url:{type:"string",title:"Lora URL",x_order:7,nullable:true,description:"Optional: the URL of a LoRA to use (HF resolve .safetensors URL)."},
+    lora_strength_model:{type:"number",title:"Lora Strength Model",default:1,x_order:8,description:"Strength of the LoRA applied to the model. 0.0 is no LoRA."},
+    lora_strength_clip:{type:"number",title:"Lora Strength Clip",default:1,x_order:9,description:"Strength of the LoRA applied to the CLIP model. 0.0 is no LoRA."},
+    fast_mode:{enum:["Off","Balanced","Fast"],type:"string",title:"fast_mode",default:"Balanced",x_order:10,description:"Speed up generation with different levels of acceleration."},
+    sample_steps:{type:"integer",title:"Sample Steps",default:30,minimum:1,maximum:60,x_order:11,description:"Number of generation steps. Fewer steps means faster generation."},
+    sample_guide_scale:{type:"number",title:"Sample Guide Scale",default:5,minimum:0,maximum:10,x_order:12,description:"Higher guide scale makes prompt adherence better, but can reduce variation"},
+    sample_shift:{type:"number",title:"Sample Shift",default:8,minimum:0,maximum:10,x_order:13,description:"Sample shift factor"},
+    seed:{type:"integer",title:"Seed",x_order:14,description:"Set a seed for reproducibility. Random by default."}
   }
 };
 
@@ -869,8 +932,8 @@ const NSFW_LORAS = [
     file: "wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
     repo_url: "https://huggingface.co/Market5/Wan_2.2-2.1_POV_Missionary-high",
     file_url: "https://huggingface.co/Market5/Wan_2.2-2.1_POV_Missionary-high/resolve/main/wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
-    suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights)",
-    replicate_model: "wavespeedai/wan-2.1-t2v-480p",
+    suggested_target: "wavespeedai/wan-2.1-i2v-720p (lora_weights)",
+    replicate_model: "wavespeedai/wan-2.1-i2v-720p",
     note: "80 downloads. Stamped Wan 2.1 I2V 720P, missionary POV. No documented trigger. 307 MB."
   },
   {
@@ -883,8 +946,8 @@ const NSFW_LORAS = [
     file: "wan_dr34mj0b_t2v.safetensors",
     repo_url: "https://huggingface.co/Market5/Double_Single_Handy_Blowjob",
     file_url: "https://huggingface.co/Market5/Double_Single_Handy_Blowjob/resolve/main/wan_dr34mj0b_t2v.safetensors",
-    suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights)",
-    replicate_model: "wavespeedai/wan-2.1-t2v-480p",
+    suggested_target: "wavespeedai/wan-2.1-i2v-480p (lora_weights)",
+    replicate_model: "wavespeedai/wan-2.1-i2v-480p",
     note: "36 downloads. Stamped Wan 2.1 I2V 480P. No documented trigger. 154 MB."
   },
   {
@@ -897,8 +960,8 @@ const NSFW_LORAS = [
     file: "Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
     repo_url: "https://huggingface.co/Market5/Assertive_Cowgirl",
     file_url: "https://huggingface.co/Market5/Assertive_Cowgirl/resolve/main/Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
-    suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights)",
-    replicate_model: "wavespeedai/wan-2.1-t2v-480p",
+    suggested_target: "wavespeedai/wan-2.1-i2v-720p (lora_weights)",
+    replicate_model: "wavespeedai/wan-2.1-i2v-720p",
     note: "20 downloads. Stamped Wan 2.1 I2V 720P (LOW variant also exists). No documented trigger. 307 MB."
   },
   {
@@ -981,6 +1044,9 @@ const CATALOG = [
   { id:"alibaba/wan-3-prime", name:"WAN 3.0 Prime", group:"video", category:"Video · WAN 3.0", version:"alibaba/wan-3-prime:736267d3620794f7e744f46c814304617a16ff3d19e43ee70daa7bff87c7d150", description:"Wan 3.0 Prime — speed-optimized variant of Wan 3.0, same params (prompt, image, resolution, aspect_ratio, duration 2-30, prompt expansion). Up to 1080p/30s.", schema: WAN3_PRIME_SCHEMA },
   { id:"wan-video/wan-2.2-t2v-fast", name:"WAN 2.2 T2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-t2v-fast:c483b1f7b892065bc58ebadb6381abf557f6b1f517d2ff0febb3fb635cf49b4d", description:"Wan 2.2 T2V Fast — text-to-video, 480p 16:9/9:16, 81-121 frames, 5-30fps. For image-to-video use WAN 2.2 I2V Fast or WAN 3.0.", schema: WAN22_T2V_SCHEMA },
   { id:"wan-video/wan-2.2-i2v-fast", name:"WAN 2.2 I2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-i2v-fast:4eaf2b01d3bf70d8a2e00b219efeb7cb415855ad18b7dacdc4cae664a73a6eea", description:"Wan 2.2 I2V Fast — image-to-video, supports image + last_image, 480p, 81 frames. Fixed: was wan-2.1-t2v-14b (Model not found).", schema: WAN22_I2V_SCHEMA },
+  { id:"wavespeedai/wan-2.1-i2v-480p", name:"WAN 2.1 I2V 480p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-480p:e2870aa4965fd9ddfd87c16a3c8ab952c18e745e63f3f3b123c2dc8b538ad2b5", description:"WaveSpeed Wan 2.1 I2V 480p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 480P adapters.", schema: WAVESPEED_WAN21_I2V_480P_SCHEMA },
+  { id:"wavespeedai/wan-2.1-i2v-720p", name:"WAN 2.1 I2V 720p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-720p:1f0a7fa066689a087b597a314f60ef74d1a720fa1fb9a7083487c4b01db3395f", description:"WaveSpeed Wan 2.1 I2V 720p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 720P adapters.", schema: WAVESPEED_WAN21_I2V_720P_SCHEMA },
+  { id:"wan-video/wan2.1-with-lora", name:"Wan 2.1 with LoRA", group:"video", category:"Video · WAN", version:"wan-video/wan2.1-with-lora:c48fa8ec65b13143cb552ab98ea17984eab9d70e9fe99479117de40a2a7f9ed0", description:"Wan 2.1 14b/1.3b T2V+I2V with lora_url + model/CLIP strength sliders. Use 14b for 14B LoRAs.", schema: WAN21_WITH_LORA_SCHEMA },
   { id:"wavespeedai/wan-2.1-t2v-480p", name:"WAVESPEED Wan 2.1 T2V 480p", group:"video", category:"Video · Wavespeed", version:"wavespeedai/wan-2.1-t2v-480p:7677a619127ea34d1ed873fb5b77448e4b9889fbd83809b44a2c459ace99192a", description:"WavespeedAI Wan 2.1 T2V 480p — I2V (image required) + T2V, 16:9/9:16, fast_mode Off/Balanced/Fast, sample_steps 1-40, lora_scale 0-4, disable_safety_checker for unrestricted.", schema: WAVESPEED_WAN21_T2V_SCHEMA },
 ];
 
@@ -2127,7 +2193,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     else if(props.lora_weights) targetKey='lora_weights';
     // For Wan, try lora_weights, for Flux try extra_lora
     // If multiple, prefer the URL field (extra_lora/lora_weights) over scale
-    const candidates = ['extra_lora','lora_weights','lora_scale','extra_lora_scale'];
+    const candidates = ['extra_lora','lora_weights','lora_url','lora_scale','extra_lora_scale'];
     for(const k of candidates){
       if(props[k] && props[k].type==='string'){
         targetKey=k;
