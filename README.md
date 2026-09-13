@@ -7,6 +7,17 @@ Orchestrate generative AI prompts on **Replicate.com** — schema-driven, like `
 - **Conditional params**: e.g. `width`/`height` only enabled when `aspect_ratio=custom` and `go_fast=false` (matches the AZNTEN schema). Video model proves we **block 4K when max is 1080p**.
 - **Single HTML file** — no build, Tailwind via CDN, Font Awesome.
 
+## Output auto-save (beats the 1h Replicate expiry)
+
+On every successful run the app POSTs output URLs to
+`POST /api/replicate/save-outputs`, and the Worker pulls each file straight
+into the `genai-assets` R2 bucket under `replicate/YYYYMMDD/…` — no local
+disk, no CORS issues. Toggle with the **R2 cloud save** checkbox (on by
+default); if R2 is unreachable it falls back to local download.
+`GET /api/replicate/file?key=…` serves a saved file back.
+The bucket binding (`OUTPUTS_BUCKET`) lives in `wrangler.toml` — the same
+bucket the Generative AI Dashboard browses.
+
 ## Quick start
 
 1. Open `index.html` (double-click or `npx serve .`).

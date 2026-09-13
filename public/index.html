@@ -266,6 +266,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
         <div id="outputMeta" class="output-meta"></div>
         <div class="mt-3 pt-2 border-t border-zinc-800 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
           <label class="inline-flex items-center gap-1.5 cursor-pointer" title="Replicate deletes output files ~1h after generation"><input type="checkbox" id="chkAutoSave" checked class="accent-violet-600"> Auto-save outputs</label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer" title="Pull outputs into Cloudflare R2 (genai-assets) instead of local disk"><input type="checkbox" id="chkR2Save" checked class="accent-emerald-600"> R2 cloud save</label>
           <button id="btnSaveFolder" class="btn-secondary !px-2 !py-1 text-[10px]">Save folder: Downloads</button>
           <span id="saveStatus" class="text-zinc-600"></span>
           <button id="btnDownloadAll" class="btn-secondary !px-2 !py-1 text-[10px] ml-auto"><i class="fas fa-download mr-1"></i>Download all</button>
@@ -1033,6 +1034,26 @@ const QWEN_IMAGE_SCHEMA = {
   }
 };
 
+// minimax/h3 — OFFICIAL versionless model (schema from /minimax/h3/llms.txt, 2026-09-12).
+// T2V + first/last-frame I2V + reference (up to 9 images / 3 videos / 3 audio). 4-15s, 768P/2K.
+// Billing: $0.08/s @768P, $0.13/s @2K. Called WITHOUT a version pin:
+// POST /v1/models/minimax/h3/predictions {input}. No LoRA slots, no safety
+// toggle (moderation is MiniMax-side) — keep schema exact so buildInput sends nothing spurious.
+const H3_SCHEMA = {
+  type:"object", title:"Input", required:["prompt"],
+  properties:{
+    prompt:{type:"string",title:"Prompt",x_order:0,description:"Text prompt describing the video"},
+    first_frame_image:{type:"string",format:"uri",title:"First Frame Image",x_order:1,description:"Optional first frame — output follows its aspect ratio (I2V)"},
+    last_frame_image:{type:"string",format:"uri",title:"Last Frame Image",x_order:2,description:"Optional last frame — final frame matches it"},
+    reference_image_urls:{type:"array",items:{type:"string",format:"uri"},title:"Reference Images",default:[],x_order:3,description:"Up to 9 reference images (character/style consistency)"},
+    reference_video_urls:{type:"array",items:{type:"string",format:"uri"},title:"Reference Videos",default:[],x_order:4,description:"Up to 3 reference videos (motion/camera/rhythm guide)"},
+    reference_audio_urls:{type:"array",items:{type:"string",format:"uri"},title:"Reference Audio",default:[],x_order:5,description:"Up to 3 reference audio clips (voice/rhythm guide)"},
+    duration:{type:"integer",title:"Duration (s)",default:5,minimum:4,maximum:15,x_order:6,description:"4-15s. Billed per second: $0.08/s 768P, $0.13/s 2K"},
+    resolution:{enum:["768P","2K"],type:"string",title:"Resolution",default:"768P",x_order:7,description:"768P cheap / 2K premium"},
+    ratio:{enum:["adaptive","16:9","9:16","1:1","4:3","3:4","21:9"],type:"string",title:"Aspect Ratio",default:"adaptive",x_order:8,description:"REQUIRED for text-to-video (pick a concrete ratio). Use adaptive with first_frame_image"}
+  }
+};
+
 const CATALOG = [
   { id:"d33pstatetech-stack/aznten_replicate", name:"AZNTEN Flux LoRA (dev/schnell)", group:"image", category:"Image · Flux LoRA", version:"d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453", description:"Flux-based LoRA trained with trigger word aznten. dev @28 steps quality, schnell @4 steps speed. Conditional width/height on aspect_ratio=custom, max 1440.", schema: AZNTEN_SCHEMA },
   { id:"d33pstatetech-stack/aznten-flux.1-dev-replicate", name:"AZNTEN FLUX.1-dev (standalone)", group:"image", category:"Image · Flux LoRA", version:"d33pstatetech-stack/aznten-flux.1-dev-replicate:be6b57b05d69042bac4db99c9eebb22afcaf9e7aa3839cdd30e5cebd8c34d604", description:"Trained FLUX.1-dev LoRA as standalone model (2026-09-07) — baked weights, trigger word, lora_scale -1..3, extra_lora + replicate_weights stacking slots. Unrestricted by default.", schema: AZNTEN_DEV_REPLICATE_SCHEMA },
@@ -1049,6 +1070,7 @@ const CATALOG = [
   { id:"wavespeedai/wan-2.1-i2v-720p", name:"WAN 2.1 I2V 720p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-720p:1f0a7fa066689a087b597a314f60ef74d1a720fa1fb9a7083487c4b01db3395f", description:"WaveSpeed Wan 2.1 I2V 720p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 720P adapters. Note: WaveSpeed may still block explicit outputs provider-side even with NSFW enabled (observed 2026-09-11).", schema: WAVESPEED_WAN21_I2V_720P_SCHEMA },
   { id:"wan-video/wan2.1-with-lora", name:"Wan 2.1 with LoRA", group:"video", category:"Video · WAN", version:"wan-video/wan2.1-with-lora:c48fa8ec65b13143cb552ab98ea17984eab9d70e9fe99479117de40a2a7f9ed0", description:"Wan 2.1 14b/1.3b T2V+I2V with lora_url + model/CLIP strength sliders. Use 14b for 14B LoRAs.", schema: WAN21_WITH_LORA_SCHEMA },
   { id:"wavespeedai/wan-2.1-t2v-480p", name:"WAVESPEED Wan 2.1 T2V 480p", group:"video", category:"Video · Wavespeed", version:"wavespeedai/wan-2.1-t2v-480p:7677a619127ea34d1ed873fb5b77448e4b9889fbd83809b44a2c459ace99192a", description:"WavespeedAI Wan 2.1 T2V 480p — I2V (image required) + T2V, 16:9/9:16, fast_mode Off/Balanced/Fast, sample_steps 1-40, lora_scale 0-4, disable_safety_checker for unrestricted.", schema: WAVESPEED_WAN21_T2V_SCHEMA },
+  { id:"minimax/h3", name:"MiniMax H3 (I2V + reference)", group:"video", category:"Video · Hailuo", version:"minimax/h3", official:true, description:"MiniMax H3 official — T2V + first/last-frame I2V + reference (9 imgs / 3 vids / 3 audio), 4-15s, 768P/2K ($0.08/$0.13 per s). Official model: runs latest, no version pin. No LoRA slots; moderation is MiniMax-side.", schema: H3_SCHEMA },
 ];
 
 // Runtime state
@@ -1450,7 +1472,9 @@ function buildInput(){
 function updatePayloadPreview(){
   if(!currentModel){ $('payloadPreview').textContent='// select a model'; return; }
   const input=buildInput();
-  const payload={ version: currentModel.version, input };
+  const payload = currentModel.official
+    ? { endpoint: `POST /v1/models/${currentModel.id}/predictions (official, latest, unpinned)`, input }
+    : { version: currentModel.version, input };
   $('payloadPreview').textContent=JSON.stringify(payload, null, 2);
   $('charCount').textContent=`${($('promptInput').value||'').length} chars`;
 }
@@ -1458,7 +1482,7 @@ function updateCostBar(){
   if(!currentModel){ $('costBar').classList.add('hidden'); return; }
   $('costBar').classList.remove('hidden');
   $('costValue').textContent=currentModel.id;
-  $('pollInfo').textContent=currentModel.version.includes(':')?'version pinned':'model alias (latest)';
+  $('pollInfo').textContent = currentModel.official ? 'official model (latest, unpinned)' : (currentModel.version.includes(':')?'version pinned':'model alias (latest)');
 }
 
 // ---------- generate ----------
@@ -1474,8 +1498,12 @@ async function generate(){
   showStatus('Submitting','Sending to Replicate…',true); hideOutput(); abortPoll=false; activePredId=null;
   const input=buildInput();
   const preferWait=$('chkPreferWait').checked;
+  const isOfficial = !!currentModel.official;
+  // Official versionless models run latest via the model endpoint (no version pin)
+  const body = isOfficial ? { input } : (currentModel.version.includes(':') ? { version: currentModel.version, input } : { model: currentModel.id, input });
+  const submitPath = isOfficial ? `/api/replicate/models/${currentModel.id}/predictions` : '/api/replicate/predictions';
+  const directUrl = isOfficial ? `https://api.replicate.com/v1/models/${currentModel.id}/predictions` : 'https://api.replicate.com/v1/predictions';
   // Build body: prefer version if it has colon, else model
-  const body = currentModel.version.includes(':') ? { version: currentModel.version, input } : { model: currentModel.id, input };
   // if version field without hash but user wants version-like, try to include version as model
   try{
     // Try Worker proxy first (hides REPLICATE_API_TOKEN, avoids CORS) — no Prefer: wait for Worker (returns quickly with id, then poll)
@@ -1485,7 +1513,7 @@ async function generate(){
     try{
       const ctrl=new AbortController();
       const to=setTimeout(()=>ctrl.abort(), 15000);
-      const wr = await fetch('/api/replicate/predictions', { method:'POST', headers:{'Content-Type':'application/json'}, body: workerBody, signal: ctrl.signal });
+      const wr = await fetch(submitPath, { method:'POST', headers:{'Content-Type':'application/json'}, body: workerBody, signal: ctrl.signal });
       clearTimeout(to);
       // If Worker responded with JSON (not 404 HTML from python server), use it. Python's 404 is text/html.
       const ct=wr.headers.get('content-type')||'';
@@ -1496,7 +1524,7 @@ async function generate(){
       }
     } catch(e){
       // Fallback to direct Replicate (requires token in browser) — use Prefer: wait if checked
-      res=await fetch('https://api.replicate.com/v1/predictions',{
+      res=await fetch(directUrl,{
         method:'POST',
         headers:{ 'Authorization':`Bearer ${tok}`, 'Content-Type':'application/json', ...directPreferHeader },
         body: JSON.stringify(body)
@@ -1509,11 +1537,16 @@ async function generate(){
     }
     activePredId=data.id;
     $('statusMeta').textContent=`id=${data.id}  model=${data.model||currentModel.id}`;
+    if(window.lastEnhancementId && data.id){
+      // Link run → enhancement in shared history (fire-and-forget)
+      fetch('/api/history/link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'replicate',external_job_id:data.id,enhancement_id:window.lastEnhancementId})}).catch(()=>{});
+      window.lastEnhancementId=null;
+    }
     if(data.status==='succeeded'){
       showStatus('Completed','Succeeded (Prefer: wait)',false);
       if(data.output) showOutput(data.output, data.metrics);
       addHistory(data.output); resetGenBtn(); logLines(data.logs);
-      if(data.output) saveOutputs(Array.isArray(data.output)?data.output:[data.output]);
+      if(data.output) saveOutputs(Array.isArray(data.output)?data.output:[data.output], false, data.id);
     } else if(data.status==='failed'){
       renderFailure(data, input, null);
       if(/NSFW|safety/i.test(data.error||'')) toast('NSFW blocked — enable disable_safety_checker','error');
@@ -1553,7 +1586,7 @@ function poll(id){
       $('statusMeta').textContent=`id=${id}  ${elapsed}s elapsed`;
       if(d.status==='succeeded'){
         clearInterval(pollTimer); showStatus('Completed',`Done in ${elapsed}s`,false); logLines(d.logs); if(d.output) showOutput(d.output, d.metrics); addHistory(d.output); resetGenBtn(); updateProgress(100);
-        if(d.output) saveOutputs(Array.isArray(d.output)?d.output:[d.output]);
+        if(d.output) saveOutputs(Array.isArray(d.output)?d.output:[d.output], false, id);
       } else if(d.status==='failed' || d.status==='canceled'){
         clearInterval(pollTimer);
         if(d.status==='failed'){ renderFailure(d, null, elapsed); toast('Failed — see diagnostics panel','error'); }
@@ -1579,7 +1612,20 @@ function showOutput(outputs, metrics){
   if(urls.length>1){
     $('outputContent').innerHTML += `<div class="grid grid-cols-2 gap-2 mt-3">${urls.map(u=> /(\.mp4|\.webm)/i.test(u)?`<video src="${u}" controls class="rounded-lg"></video>`:`<img src="${u}" class="rounded-lg">`).join('')}</div>`;
   }
-  $('outputMeta').innerHTML=`<span><i class="fas fa-clock"></i> ${metrics?.predict_time?metrics.predict_time.toFixed(2)+'s predict':''}</span><span><i class="fas fa-images"></i> ${urls.length} output${urls.length>1?'s':''}</span><span class="ml-auto"><a href="${url}" target="_blank" class="text-violet-400 hover:underline">Open raw</a></span>`;
+  $('outputMeta').innerHTML=`<span><i class="fas fa-clock"></i> ${metrics?.predict_time?metrics.predict_time.toFixed(2)+'s predict':''}</span><span><i class="fas fa-images"></i> ${urls.length} output${urls.length>1?'s':''}</span><span class="ml-auto"><a href="${url}" target="_blank" class="text-violet-400 hover:underline">Open raw</a></span><span id="rateRow" class="ml-2">rate: ${[1,2,3,4,5].map(i=>`<button data-rate="${i}" class="text-zinc-600 hover:text-amber-300 text-sm" title="rate ${i}">★</button>`).join('')}</span>`;
+  $('outputMeta').querySelectorAll('[data-rate]').forEach(b=> b.addEventListener('click', ()=> rateRun(Number(b.dataset.rate))));
+}
+// Rate the active prediction 1-5 into shared history (top-rated prompts feed Phase 2 templates)
+async function rateRun(n){
+  const id = (typeof activePredId!=='undefined' && activePredId) || '';
+  if(!id){ toast('No run id to rate yet','error'); return; }
+  try{
+    const r = await fetch('/api/history/rate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'replicate',external_job_id:id,rating:n})});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    toast('Rated '+n+'★ — saved to shared history','success');
+    document.querySelectorAll('#outputMeta [data-rate]').forEach(b=>{ const on=Number(b.dataset.rate)<=n; b.classList.toggle('text-amber-400',on); b.classList.toggle('text-zinc-600',!on); });
+  }catch(e){ toast('Rate failed: '+e.message,'error'); }
 }
 function logLines(logs){ if(!logs) return; const el=$('statusLogs'); el.classList.remove('hidden'); el.textContent=String(logs).slice(-4000); el.scrollTop=el.scrollHeight; }
 function logLinesFull(logs){ const el=$('statusLogs'); el.classList.remove('hidden'); el.textContent=String(logs||'(no logs returned)'); el.scrollTop=el.scrollHeight; }
@@ -1658,8 +1704,10 @@ function renderSaved(){
 }
 
 // ---------- auto-save outputs (Replicate deletes files ~1h after generation) ----------
-// Download-only: files are written as bytes and never executed.
+// R2-first: files are pulled into Cloudflare R2 by the Worker (no local disk,
+// no CORS issues). Falls back to local download if R2 is unavailable.
 const LS_AUTOSAVE='replicate_autosave';
+const LS_R2SAVE='replicate_r2save';
 let saveDirHandle=null, saveDirName='';
 function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open('replicate_saver',1); r.onupgradeneeded=()=>r.result.createObjectStore('handles'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function idbGet(k){ try{ const db=await idbOpen(); return await new Promise((res,rej)=>{ const t=db.transaction('handles').objectStore('handles').get(k); t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); }); }catch{ return null; } }
@@ -1687,11 +1735,34 @@ async function downloadOne(url, filename){
   setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
   return 'downloads';
 }
-async function saveOutputs(urls, force){
+async function saveOutputs(urls, force, predId){
   const auto=(localStorage.getItem(LS_AUTOSAVE)??'1')==='1';
   if(!urls||!urls.length) return;
   if(!auto && !force) return;
-  const st=$('saveStatus'); let ok=0, dest='';
+  const st=$('saveStatus');
+  const wantR2=(localStorage.getItem(LS_R2SAVE)??'1')==='1';
+  if(wantR2){
+    try{
+      if(st) st.textContent=`Saving ${urls.length} file${urls.length>1?'s':''} to R2…`;
+      const r=await fetch('/api/replicate/save-outputs',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({urls, model:currentModel&&currentModel.id, predictionId:predId||activePredId||''})});
+      const ct=r.headers.get('content-type')||'';
+      if(!ct.includes('application/json')&&!r.ok) throw new Error('R2 route unavailable');
+      const j=await r.json();
+      if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+      const ok=j.saved.length;
+      if(ok===urls.length){
+        const keys=j.saved.map(s=>s.key).join(', ');
+        if(st) st.textContent=`Saved ${ok}/${urls.length} → R2 (${keys})`;
+        toast(`Saved ${ok} file${ok>1?'s':''} to R2`,'success');
+        try{ ($('outputCard')||{}).dataset&&( $('outputCard').dataset.r2keys=JSON.stringify(j.saved.map(s=>s.key)) ); }catch{}
+        console.log('R2 saved:', j.saved);
+        return;
+      }
+      console.warn('R2 partial save, falling back to local for all', j.errors);
+    }catch(e){ console.warn('R2 save failed, falling back to local download', e); }
+  }
+  let ok=0, dest='';
   if(st) st.textContent=`Saving ${urls.length} file${urls.length>1?'s':''}…`;
   for(let i=0;i<urls.length;i++){
     try{ dest=await downloadOne(urls[i], saveFileName(urls[i],i)); ok++; }
@@ -1703,6 +1774,8 @@ async function saveOutputs(urls, force){
 async function initAutoSave(){
   const chk=$('chkAutoSave');
   if(chk){ chk.checked=(localStorage.getItem(LS_AUTOSAVE)??'1')==='1'; chk.addEventListener('change',()=>{ localStorage.setItem(LS_AUTOSAVE, chk.checked?'1':'0'); toast('Auto-save '+(chk.checked?'ON — outputs download after each run':'OFF')); }); }
+  const chkR2=$('chkR2Save');
+  if(chkR2){ chkR2.checked=(localStorage.getItem(LS_R2SAVE)??'1')==='1'; chkR2.addEventListener('change',()=>{ localStorage.setItem(LS_R2SAVE, chkR2.checked?'1':'0'); toast('R2 cloud save '+(chkR2.checked?'ON — outputs go to genai-assets':'OFF — local downloads only')); }); }
   const bf=$('btnSaveFolder');
   if(!window.showDirectoryPicker){ if(bf){ bf.disabled=true; bf.title='Folder picker needs Chrome/Edge (File System Access API) — files save to Downloads instead'; bf.textContent='Save folder: n/a'; } }
   else if(bf){ bf.addEventListener('click', async()=>{ try{ const h=await window.showDirectoryPicker({mode:'readwrite'}); saveDirHandle=h; saveDirName=h.name||''; await idbSet('outputs',h); bf.textContent='Save folder: '+saveDirName; toast('Save folder set: '+saveDirName,'success'); }catch(e){ if(e&&e.name!=='AbortError') toast('Folder pick failed: '+e.message,'error'); } }); }
@@ -2019,6 +2092,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
               if(d==="[DONE]"||!d) continue;
               try{
                 const j=JSON.parse(d);
+                if(j.history_id){ window.lastEnhancementId=j.history_id; continue; }
                 const delta=j.choices?.[0]?.delta?.content||"";
                 const think=j.choices?.[0]?.delta?.reasoning_content||"";
                 const chunk=delta||think;
@@ -2034,6 +2108,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         } else {
           const data=await res.json();
           full=data.enhanced||data.optimized_prompt||"";
+          if(data.history_id) window.lastEnhancementId=data.history_id;
           providerUsed=data.providerUsed||providerUsed;
           modelUsed=data.modelUsed||modelUsed;
           const out=document.getElementById(outputId);

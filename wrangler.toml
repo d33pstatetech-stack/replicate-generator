@@ -11,5 +11,15 @@ binding = "DB"
 database_name = "replicate-orchestrator"
 database_id = "be087ef6-6d86-46a3-a305-48c71a32ac85"
 
+[[d1_databases]]
+binding = "HISTORY"
+database_name = "genai-history"
+database_id = "6a271502-ea90-411b-935c-50a16d5d5300"
+migrations_dir = "migrations-history"
+
+[[r2_buckets]]
+binding = "OUTPUTS_BUCKET"
+bucket_name = "genai-assets"
+
 [vars]
 # REPLICATE_API_TOKEN, VENICE_API_KEY, OPENROUTER_API_KEY set via .dev.vars / dashboard secrets
