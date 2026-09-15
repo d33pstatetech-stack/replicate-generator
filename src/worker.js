@@ -15,7 +15,7 @@
  *   * → static assets (index.html)
  */
 
-const PROTECTED_API_PREFIXES = ['/api/enhance', '/api/optimize', '/api/prompts', '/api/llm-config', '/api/replicate', '/api/hf', '/api/history']; // fail-closed without Cloudflare Access headers (defense-in-depth; edge Access app is the primary gate)
+const PROTECTED_API_PREFIXES = ['/api/enhance', '/api/optimize', '/api/prompts', '/api/llm-config', '/api/replicate', '/api/hf', '/api/cloud', '/api/history']; // fail-closed without Cloudflare Access headers (defense-in-depth; edge Access app is the primary gate)
 
 const DEFAULT_LLM_PROVIDERS = [
   { baseUrl: 'https://openrouter.ai/api/v1', model: 'liquid/lfm-2.5-2.6b:free', apiKey: '' },
@@ -496,6 +496,72 @@ async function handleApiRoute(request, env, path, ctx) {
   // Replicate deletes outputs ~1h after generation. The browser POSTs the
   // output URLs here right after a run succeeds; the Worker fetches each URL
   // server-side (no CORS issues, no local disk) and streams it to R2.
+  // ─── Cloud storage picker (R2 as a second input source; local upload unchanged) ───
+  // Browse genai-assets and resolve a key into a base64 data URI (images; 12MB cap).
+  if (path === '/api/cloud/list' && request.method === 'GET') {
+    if (!env.OUTPUTS_BUCKET) return jsonResponse({ configured: false }, 500);
+    const q = new URL(request.url).searchParams;
+    const prefix = q.get('prefix') || '';
+    const recursive = q.get('recursive') === '1';
+    const listed = await env.OUTPUTS_BUCKET.list({
+      prefix, delimiter: recursive ? undefined : (q.get('delimiter') || '/'),
+      cursor: q.get('cursor') || undefined, limit: 1000,
+    });
+    return jsonResponse({
+      configured: true, prefix, recursive,
+      folders: listed.delimitedPrefixes || [],
+      objects: (listed.objects || []).map((o) => ({ key: o.key, size: o.size, uploaded: o.uploaded })),
+      truncated: !!listed.truncated, cursor: listed.truncated ? (listed.cursor || null) : null,
+    });
+  }
+  if (path === '/api/cloud/file' && request.method === 'GET') {
+    if (!env.OUTPUTS_BUCKET) return jsonResponse({ configured: false }, 500);
+    const key = (new URL(request.url).searchParams.get('key') || '').replace(/^\/+/, '');
+    if (!key) return jsonResponse({ error: 'key required' }, 400);
+    const obj = await env.OUTPUTS_BUCKET.get(key);
+    if (!obj) return jsonResponse({ error: 'not found' }, 404);
+    const ct = cloudContentType(key, obj.httpMetadata?.contentType);
+    const range = request.headers.get('range');
+    if (range) {
+      const m = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+      if (m) {
+        const size = obj.size;
+        let start = m[1] === '' ? null : parseInt(m[1], 10);
+        let end = m[2] === '' ? null : parseInt(m[2], 10);
+        if (start === null && end !== null) { start = Math.max(0, size - end); end = size - 1; }
+        else if (start !== null && end === null) { end = size - 1; }
+        if (start !== null && end !== null && Number.isFinite(start) && Number.isFinite(end) && start <= end && start < size) {
+          end = Math.min(end, size - 1);
+          const ranged = await env.OUTPUTS_BUCKET.get(key, { range: { offset: start, length: end - start + 1 } });
+          if (ranged) {
+            return new Response(ranged.body, { status: 206, headers: {
+              'Content-Type': ct, 'Accept-Ranges': 'bytes',
+              'Content-Range': 'bytes ' + start + '-' + end + '/' + size,
+              'Content-Length': String(end - start + 1) } });
+          }
+        } else {
+          return new Response('Requested Range Not Satisfiable', { status: 416, headers: { 'Content-Range': 'bytes */' + obj.size } });
+        }
+      }
+    }
+    return new Response(obj.body, { headers: { 'Content-Type': ct, 'Accept-Ranges': 'bytes', 'Content-Length': String(obj.size) } });
+  }
+  if (path === '/api/cloud/resolve' && request.method === 'POST') {
+    if (!env.OUTPUTS_BUCKET) return jsonResponse({ error: 'R2 not configured on Worker' }, 500);
+    let body; try { body = await request.json(); } catch { return jsonResponse({ error: 'Invalid JSON' }, 400); }
+    const key = String(body.key || '').replace(/^\/+/, '');
+    if (!key) return jsonResponse({ error: 'key required' }, 400);
+    const obj = await env.OUTPUTS_BUCKET.get(key);
+    if (!obj) return jsonResponse({ error: 'not found' }, 404);
+    if (obj.size > 12 * 1024 * 1024) return jsonResponse({ error: 'file too large for data URI (12MB cap); paste a https URL instead' }, 413);
+    const ct = cloudContentType(key, obj.httpMetadata?.contentType);
+    const buf = await obj.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    const CH = 0x8000;
+    for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    return jsonResponse({ url: 'data:' + ct + ';base64,' + btoa(bin), key, via: 'data-uri' });
+  }
   if (path === '/api/replicate/save-outputs' && request.method === 'POST') {
     if (!env.OUTPUTS_BUCKET) return jsonResponse({ error: 'R2 not configured on Worker', configured: false }, 500);
     let body; try { body = await request.json(); } catch { return jsonResponse({ error: 'Invalid JSON' }, 400); }
@@ -647,4 +713,17 @@ async function handleApiRoute(request, env, path, ctx) {
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...extraHeaders } });
+}
+
+// Extension → content-type fallback for R2 objects stored as octet-stream.
+const CLOUD_EXT_CT = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  gif: 'image/gif', avif: 'image/avif', svg: 'image/svg+xml', bmp: 'image/bmp',
+  mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', m4v: 'video/x-m4v',
+  mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', flac: 'audio/flac',
+};
+function cloudContentType(key, stored) {
+  if (stored && stored !== 'application/octet-stream') return stored;
+  const m = String(key || '').split('?')[0].match(/\.([a-z0-9]{2,5})$/i);
+  return (m && CLOUD_EXT_CT[m[1].toLowerCase()]) || stored || 'application/octet-stream';
 }
