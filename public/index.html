@@ -356,7 +356,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
       <button id="btnToggleNsfwLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show NSFW LoRAs</button>
     </div>
     <div id="nsfwLoraList" class="space-y-2 hidden"></div>
-    <div id="nsfwLoraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: FLUX entries Fill into <code>extra_lora</code> on <code>aznten-flux.1-dev-replicate</code> (<code>model=dev</code>); Wan 2.1 entries Fill into <code>lora_weights</code> on the wavespeed model; Wan 2.2 entries copy the URL (no LoRA field in-catalog).</div>
+    <div id="nsfwLoraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: FLUX entries Fill into <code>extra_lora</code> on <code>aznten-flux.1-dev-replicate</code> (<code>model=dev</code>); Qwen entries Fill into <code>lora_weights</code> on <code>qwen/qwen-image</code>; Wan 2.1 entries Fill into <code>lora_weights</code> on the wavespeed model; Wan 2.2 entries copy the URL (no LoRA field in-catalog). ★ marks the preferred Fill format. R/W/M chips copy the per-service string.</div>
   </section>
 </div>
 
@@ -766,8 +766,9 @@ const USER_LORAS = [
   }
 ];
 
-// NSFW LoRA library — FLUX.1-dev adapters compatible with aznten_replicate
-// (model=dev → extra_lora). Sourced 2026-09-11 via HF MCP, ranked by likes.
+// NSFW LoRA library — FLUX.1-dev, Qwen-Image-2512 and Wan adapters.
+// Sourced 2026-09-11 via HF MCP (ranked by likes) + 2026-09-16 Qwen additions.
+// Rendered grouped (image→video, by base-model family) via renderLoraListInto(..., grouped=true).
 // All Public. 18+ only.
 const NSFW_LORAS = [
   {
@@ -839,6 +840,73 @@ const NSFW_LORAS = [
     suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
     replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
     note: "34 likes · 33.1K downloads. Tagged ultra-realistic — realistic-anatomy pick. No documented trigger. 687 MB."
+  },
+  {
+    id: "starsfriday/Qwen-Image-NSFW",
+    name: "Qwen-Image-NSFW (Qwen)",
+    base_model: "Qwen-Image-2512",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "rsq",
+    triggers: ["rsq"],
+    strength: "0.6–1.0",
+    file: "qwen_image_nsfw.safetensors",
+    repo_url: "https://huggingface.co/starsfriday/Qwen-Image-NSFW",
+    file_url: "https://huggingface.co/starsfriday/Qwen-Image-NSFW/resolve/main/qwen_image_nsfw.safetensors",
+    formats: {
+      replicate: "huggingface.co/starsfriday/Qwen-Image-NSFW",
+      wavespeed: "starsfriday/Qwen-Image-NSFW",
+      muapi: "https://huggingface.co/starsfriday/Qwen-Image-NSFW/resolve/main/qwen_image_nsfw.safetensors"
+    },
+    preferred: "docs",
+    suggested_target: "qwen/qwen-image (lora_weights)",
+    replicate_model: "qwen/qwen-image",
+    note: "General NSFW adapter for Qwen-Image-2512. Trigger 'rsq'. Pair with strength 0.6–1.0."
+  },
+  {
+    id: "Sentinel7/qwen-image-qwen4play",
+    name: "Qwen4Play 2512 v1/v2 (Qwen)",
+    base_model: "Qwen-Image-2512",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "bl0wj0b",
+    triggers: ["bl0wj0b", "c0wg1rl", "m15510n4ry", "d0gg13"],
+    strength: "0.8–1.0",
+    file: "Qwen4Play-2512.1_e10.safetensors",
+    repo_url: "https://huggingface.co/Sentinel7/qwen-image",
+    file_url: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
+    civitai: "civitai:2004155@2611939",
+    formats: {
+      replicate: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
+      wavespeed: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
+      muapi: "civitai:2004155@2611939"
+    },
+    preferred: "file",
+    suggested_target: "qwen/qwen-image (lora_weights)",
+    replicate_model: "qwen/qwen-image",
+    note: "Act-specific LoRA (Civitai mirror). File lives in a subfolder so the HF short form will NOT work — use the full URL on WaveSpeed/Replicate. Triggers vary by act, or none required."
+  },
+  {
+    id: "Sentinel7/qwen-image-naturalbeauty",
+    name: "NaturalBeauty Nudity (Qwen)",
+    base_model: "Qwen-Image-2512",
+    pipeline: "text-to-image",
+    private: false,
+    instance_prompt: "naked",
+    triggers: ["naked", "topless", "breasts visible", "nipples visible", "pussy visible"],
+    strength: "0.6–1.0",
+    file: "NaturalBeautyQwenImage2512Nudity.safetensors",
+    repo_url: "https://huggingface.co/Sentinel7/qwen-image",
+    file_url: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
+    formats: {
+      replicate: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
+      wavespeed: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
+      muapi: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors"
+    },
+    preferred: "file",
+    suggested_target: "qwen/qwen-image (lora_weights)",
+    replicate_model: "qwen/qwen-image",
+    note: "Photorealistic nudity/topless LoRA for Qwen-Image-2512. Descriptive triggers (see list). Subfolder file — full URL required everywhere."
   },
   {
     id: "lopi999/Wan2.2-I2V_General-NSFW-LoRA",
@@ -1417,6 +1485,7 @@ function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&qu
 function loraTokenIssuesRep(tok){
   const t=String(tok||'').trim();
   if(!t) return null;
+  if(/^civitai:\d+(@\d+)?$/i.test(t)) return 'civitai: shorthand is MuAPI-only — paste the full civitai.com URL here';
   if(/^https?:\/\//i.test(t)){
     if(/\.(safetensors|tar|zip)(\?|#|$)/i.test(t) || /civitai\.com|huggingface\.co|replicate\.delivery/i.test(t)) return null;
     return 'URL should end in .safetensors (Replicate also takes .tar/.zip)';
@@ -2653,53 +2722,99 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function fillLoraForCurrentModel(repoUrl){
     fillLoraValue(docsFormat(repoUrl), 'Docs-format LoRA');
   }
-  function renderLoraListInto(listId, loras, hintId){
+  function loraFamily(l){
+    const b=String(l.base_model||'');
+    if(/flux/i.test(b)) return 'FLUX.1';
+    if(/qwen/i.test(b)) return 'Qwen-Image';
+    if(/wan[-\s]?2\.1/i.test(b)) return 'Wan 2.1';
+    if(/wan[-\s]?2\.2/i.test(b)) return 'Wan 2.2';
+    if(/wan/i.test(b)) return 'Wan (other)';
+    return 'Other / unstamped';
+  }
+  function loraGroupLabel(l){ return (l.pipeline==='video-generation'?'🎬 Video — ':'🖼 Image — ') + loraFamily(l); }
+  const LORA_FAM_ORDER={'FLUX.1':0,'Qwen-Image':1,'Wan 2.1':2,'Wan 2.2':3,'Wan (other)':4,'Other / unstamped':5};
+  function nsfwSort(a,b){
+    const ap=a.pipeline==='video-generation'?1:0, bp=b.pipeline==='video-generation'?1:0;
+    if(ap!==bp) return ap-bp;
+    const af=LORA_FAM_ORDER[loraFamily(a)]??9, bf=LORA_FAM_ORDER[loraFamily(b)]??9;
+    if(af!==bf) return af-bf;
+    return String(a.name||'').localeCompare(String(b.name||''));
+  }
+  function loraTriggers(l){
+    if(Array.isArray(l.triggers)&&l.triggers.length) return l.triggers;
+    if(l.instance_prompt) return [l.instance_prompt];
+    return [];
+  }
+  function svcFormats(l){
+    const out=[];
+    if(l.formats&&l.formats.replicate) out.push(['R','replicate',l.formats.replicate]);
+    if(l.formats&&l.formats.wavespeed) out.push(['W','wavespeed',l.formats.wavespeed]);
+    const m=(l.formats&&l.formats.muapi)||l.civitai;
+    if(m) out.push(['M','muapi',m]);
+    return out;
+  }
+  function renderLoraListInto(listId, loras, hintId, grouped){
     const list = $(listId);
     const hint = hintId ? $(hintId) : null;
     if(!list || !loras) return;
-    list.innerHTML = loras.map(l => `
-      <div class="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-violet-700/50 transition-colors">
+    if(grouped) loras=[...loras].sort(nsfwSort);
+    let lastGroup=null;
+    list.innerHTML = loras.map(l => {
+      let head='';
+      if(grouped){ const g=loraGroupLabel(l); if(g!==lastGroup){ lastGroup=g; head=`<div class="text-[11px] font-bold text-zinc-300 mt-3 mb-1 px-1">${g}</div>`; } }
+      const trigs=loraTriggers(l);
+      const svc=svcFormats(l);
+      const pref=l.preferred||'docs';
+      const star=k=>pref===k?'★ ':'';
+      const prefCls=k=>pref===k?' !border-emerald-500 !text-emerald-300':'';
+      const trigHtml=trigs.length
+        ? trigs.map(t=>`<code class="text-[11px] font-bold bg-fuchsia-900/40 border border-fuchsia-700 text-fuchsia-300 px-1.5 py-0.5 rounded" title="trigger word — include in your prompt">${t}</code>`).join('')+`<button data-copy-trigger="${l.id}" class="icon-btn !w-6 !h-6" title="Copy trigger(s)"><i class="fas fa-copy text-[9px]"></i></button>`
+        : `<span class="text-[10px] text-zinc-600 italic">No trigger — general style</span>`;
+      return head+`
+      <div class="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-violet-700/50 transition-colors" title="${l.name} — ${l.base_model}">
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
-              <span class="text-xs font-semibold text-zinc-200 truncate">${l.name}</span>
+              <span class="text-xs font-semibold text-zinc-200 truncate" title="${l.name}">${l.name}</span>
               ${l.private ? '<span class="text-[9px] bg-amber-900/50 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded-full">Private</span>' : '<span class="text-[9px] bg-emerald-900/30 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded-full">Public</span>'}
-              <span class="text-[10px] text-zinc-500 truncate">${l.base_model}</span>
+              <span class="text-[10px] text-zinc-500 truncate" title="${l.base_model}">${l.base_model}</span>
             </div>
-            <div class="text-[10px] text-zinc-500 mt-0.5 truncate">${l.id} • ${l.file}</div>
-            <div class="mt-1 flex items-center gap-1.5">
-              <span class="text-[10px] text-zinc-500">Trigger:</span>
-              ${l.instance_prompt ? `<code class="text-[11px] font-bold bg-fuchsia-900/40 border border-fuchsia-700 text-fuchsia-300 px-1.5 py-0.5 rounded">${l.instance_prompt}</code><button data-copy-trigger="${l.id}" class="icon-btn !w-6 !h-6" title="Copy trigger"><i class="fas fa-copy text-[9px]"></i></button>` : `<span class="text-[10px] text-zinc-600 italic">No trigger — general style</span>`}
+            <div class="text-[10px] text-zinc-500 mt-0.5 truncate" title="${l.id} • ${l.file}">${l.id} • ${l.file}</div>
+            <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+              <span class="text-[10px] text-zinc-500">Trigger${trigs.length>1?'s':''}:</span>
+              ${trigHtml}
             </div>
-            <div class="text-[10px] text-zinc-600 mt-1 line-clamp-2">${l.note}</div>
-            <div class="text-[10px] text-violet-300 mt-1">→ ${l.suggested_target}</div>
+            ${l.strength?`<div class="text-[10px] text-zinc-500 mt-0.5">💪 suggested strength ${l.strength} · put trigger(s) in your prompt</div>`:''}
+            <div class="text-[10px] text-zinc-600 mt-1 line-clamp-2" title="${(l.note||'').replace(/"/g,'&quot;')}">${l.note}</div>
+            <div class="text-[10px] text-violet-300 mt-1" title="Recommended Replicate target">→ ${l.suggested_target}</div>
           </div>
-          <span class="text-[10px] text-zinc-600">${l.pipeline==='video-generation' ? '<i class=\"fas fa-video\"></i>' : '<i class=\"fas fa-image\"></i>'}</span>
+          <span class="text-[10px] text-zinc-600" title="${l.pipeline==='video-generation'?'Video LoRA':'Image LoRA'}">${l.pipeline==='video-generation' ? '<i class="fas fa-video"></i>' : '<i class="fas fa-image"></i>'}</span>
         </div>
         <div class="mt-2 space-y-1.5">
           <div class="flex gap-1 items-center">
-            <span class="text-[9px] text-zinc-500 w-14 shrink-0">Docs format</span>
-            <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate">${docsFormat(l.repo_url)}</code>
+            <span class="text-[9px] text-zinc-500 w-14 shrink-0" title="huggingface.co/owner/repo docs format">Docs format</span>
+            <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate" title="${docsFormat(l.repo_url)}">${docsFormat(l.repo_url)}</code>
             <button data-copy-docs="${l.id}" class="icon-btn !w-7 !h-7" title="Copy docs-format value"><i class="fas fa-copy text-[10px]"></i></button>
-            <button data-fill-docs="${l.id}" class="btn-primary-sm !px-2 !py-1 text-[10px]">Fill</button>
+            <button data-fill-docs="${l.id}" class="btn-primary-sm !px-2 !py-1 text-[10px]${prefCls('docs')}" title="${pref==='docs'?'★ Preferred format — auto-injects into the LoRA box':'Fill docs format'}">${star('docs')}Fill</button>
           </div>
           <div class="flex gap-1 items-center">
-            <span class="text-[9px] text-zinc-500 w-14 shrink-0">Direct file</span>
-            <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate">${l.file_url}</code>
+            <span class="text-[9px] text-zinc-500 w-14 shrink-0" title="Direct .safetensors file URL">Direct file</span>
+            <code class="flex-1 text-[10px] bg-zinc-950 border border-zinc-800 rounded px-2 py-1 truncate" title="${l.file_url}">${l.file_url}</code>
             <button data-copy-file="${l.id}" class="icon-btn !w-7 !h-7" title="Copy .safetensors URL"><i class="fas fa-file text-[10px]"></i></button>
-            <button data-fill-file="${l.id}" class="btn-secondary !px-2 !py-1 text-[10px]">Fill file</button>
+            <button data-fill-file="${l.id}" class="btn-secondary !px-2 !py-1 text-[10px]${prefCls('file')}" title="${pref==='file'?'★ Preferred format — auto-injects into the LoRA box':'Fill direct file URL'}">${star('file')}Fill file</button>
           </div>
           ${l.replicate_tar_url ? `
           <div class="flex gap-1 items-center">
-            <span class="text-[9px] text-amber-400 w-14 shrink-0">Repl .tar</span>
-            <code class="flex-1 text-[10px] bg-zinc-950 border border-amber-900/60 rounded px-2 py-1 truncate">${l.replicate_tar_url}</code>
+            <span class="text-[9px] text-amber-400 w-14 shrink-0" title="Replicate-hosted .tar (most reliable on Replicate)">Repl .tar</span>
+            <code class="flex-1 text-[10px] bg-zinc-950 border border-amber-900/60 rounded px-2 py-1 truncate" title="${l.replicate_tar_url}">${l.replicate_tar_url}</code>
             <button data-copy-tar="${l.id}" class="icon-btn !w-7 !h-7" title="Copy Replicate .tar URL"><i class="fas fa-box text-[10px]"></i></button>
-            <button data-fill-tar="${l.id}" class="btn-secondary !px-2 !py-1 text-[10px] !border-amber-800">Fill .tar</button>
+            <button data-fill-tar="${l.id}" class="btn-secondary !px-2 !py-1 text-[10px] !border-amber-800${prefCls('tar')}" title="${pref==='tar'?'★ Preferred format — auto-injects into the LoRA box':'Fill .tar URL'}">${star('tar')}Fill .tar</button>
           </div>` : `
           <div class="text-[9px] text-zinc-600">No Replicate .tar saved for this LoRA yet — grab <code>flux-lora.tar</code> from its training output page and send the link to add it here.</div>`}
+          ${svc.length?`<div class="flex gap-1 items-center flex-wrap"><span class="text-[9px] text-zinc-500 w-14 shrink-0" title="Per-service recommended strings — click a chip to copy">Services</span>${svc.map(([tag,sname,val])=>`<button data-copy-svc="${l.id}|${sname}" class="btn-secondary !px-1.5 !py-0.5 text-[9px]" title="${sname}: ${val} — click to copy">${tag}</button>`).join('')}<span class="text-[9px] text-zinc-600">R=Replicate · W=WaveSpeed · M=MuAPI</span></div>`:''}
         </div>
       </div>
-    `).join('');
+    `}).join('');
     if(hint) hint.classList.remove('hidden');
     // Wire copy/fill
     list.querySelectorAll('[data-copy-docs]').forEach(btn=>{
@@ -2727,7 +2842,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
       btn.addEventListener('click', ()=>{
         const id=btn.getAttribute('data-copy-trigger');
         const l=loras.find(x=>x.id===id);
-        if(l && l.instance_prompt) copyText(l.instance_prompt, 'Trigger');
+        if(l){ const t=loraTriggers(l); if(t.length) copyText(t.join(', '), 'Trigger'+(t.length>1?'s':'')); }
+      });
+    });
+    list.querySelectorAll('[data-copy-svc]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const [id,which]=btn.getAttribute('data-copy-svc').split('|');
+        const l=loras.find(x=>x.id===id);
+        const svc=l?svcFormats(l).find(([t,s])=>s===which):null;
+        if(svc) copyText(svc[2], which+' LoRA string');
       });
     });
     list.querySelectorAll('[data-fill-docs]').forEach(btn=>{
@@ -2753,7 +2876,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
   function renderLoraList(){ renderLoraListInto('loraList', (typeof USER_LORAS!=='undefined') ? USER_LORAS : [], 'loraHint'); }
-  function renderNsfwLoraList(){ renderLoraListInto('nsfwLoraList', (typeof NSFW_LORAS!=='undefined') ? NSFW_LORAS : [], 'nsfwLoraHint'); }
+  function renderNsfwLoraList(){ renderLoraListInto('nsfwLoraList', (typeof NSFW_LORAS!=='undefined') ? NSFW_LORAS : [], 'nsfwLoraHint', true); }
   function initLoraPicker(){
     const btn=$('btnToggleLoraList');
     const list=$('loraList');
