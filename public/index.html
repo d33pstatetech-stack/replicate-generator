@@ -1294,7 +1294,7 @@ function renderParams(){
       control = isArr
         ? `<textarea class="input" data-param="${name}" rows="2" placeholder="One LoRA URL per line">${escapeHtml(curVal)}</textarea>`
         : `<input type="text" class="input" data-param="${name}" value="${escapeHtml(curVal)}" placeholder="huggingface.co/owner/repo or .safetensors URL">`;
-      control+=`<div class="text-[10px] text-zinc-600 mt-1">LoRA URL — Docs format, Direct file, or Replicate .tar (see My LoRAs). Never upload a .safetensors file here.</div>`;
+      control+=`<div class="text-[10px] text-zinc-500 mt-1">LoRA formats: <b>huggingface.co/owner/repo</b>, direct <b>….safetensors</b> URL, <b>civitai.com/…</b>, Replicate <b>owner/name</b>, or training <b>.tar</b> (My LoRAs Fill buttons paste the right format — bare owner/repo is misread). Arrays take one per line. Never upload a .safetensors file here.</div><div class="text-[11px] text-red-400 mt-1" data-lorawarn style="display:none"></div>`;
     } else {
       // string
       const isLong = (spec.description && spec.description.length>80) || name.includes('lora') || name.includes('prompt');
@@ -1409,9 +1409,37 @@ function wireParam(group, name, spec, pType){
       updatePayloadPreview(); applyConditionalState();
     };
     sel.addEventListener('input', h); sel.addEventListener('change', h);
+    if(pType==='lora_url'){ const vh=()=>validateLoraInputRep(sel); sel.addEventListener('input', vh); vh(); }
   }
 }
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+// Soft LoRA format check — red hint only, never blocks submit.
+function loraTokenIssuesRep(tok){
+  const t=String(tok||'').trim();
+  if(!t) return null;
+  if(/^https?:\/\//i.test(t)){
+    if(/\.(safetensors|tar|zip)(\?|#|$)/i.test(t) || /civitai\.com|huggingface\.co|replicate\.delivery/i.test(t)) return null;
+    return 'URL should end in .safetensors (Replicate also takes .tar/.zip)';
+  }
+  if(/^huggingface\.co\//i.test(t) || /^civitai\.com\//i.test(t)) return null;
+  if(/^[^/\s]+\/[^/\s]+(\/[^/\s]+)?$/.test(t)) return 'use huggingface.co/owner/repo or a full URL — bare owner/repo is misread as a Replicate model';
+  return 'unrecognized format — huggingface.co/owner/repo or a full https:// URL is safest';
+}
+function validateLoraInputRep(input){
+  try{
+    const group=input.closest('.param-group');
+    const warn=group?group.querySelector('[data-lorawarn]'):null;
+    if(!warn) return;
+    const toks=(input.tagName==='TEXTAREA'?input.value.split(/[\n,]+/):[input.value]);
+    const seen=[];
+    toks.map(s=>s.trim()).filter(Boolean).forEach(t=>{
+      const iss=loraTokenIssuesRep(t);
+      if(iss){ const short=t.length>44?t.slice(0,44)+'…':t; const msg='“'+short+'”: '+iss; if(seen.indexOf(msg)<0) seen.push(msg); }
+    });
+    warn.style.display=seen.length?'':'none';
+    warn.textContent=seen.length?('⚠ '+seen.join(' · ')):'';
+  }catch{}
+}
 
 // ---------- file handling ----------
 let uploadTarget=null;
