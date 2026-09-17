@@ -1571,7 +1571,11 @@ function ensureCloudModal() {
       '.cloud-folder{display:flex;align-items:center;justify-content:center;height:130px;font-size:1.8rem;background:#030712}' +
       '.cloud-meta{padding:.3rem .45rem;font-size:.68rem;color:#d1d5db}' +
       '.cloud-ph{animation:cloudpulse 1.4s ease-in-out infinite}' +
-      '@keyframes cloudpulse{0%,100%{opacity:.45}50%{opacity:.95}}';
+      '@keyframes cloudpulse{0%,100%{opacity:.45}50%{opacity:.95}}' +
+      '.cloud-grid{align-content:start}' +
+      '.cloud-card{min-height:176px;display:flex;flex-direction:column}' +
+      '.cloud-thumb,.cloud-folder{flex:0 0 auto;min-height:130px}' +
+      '.cloud-meta{margin-top:auto}';
     document.head.appendChild(st);
   }
   document.body.insertAdjacentHTML('beforeend',
