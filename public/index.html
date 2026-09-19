@@ -81,6 +81,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
 .image-upload-zone.dragover{border-color:#7c3aed}
 .upload-preview{position:relative}
 .upload-preview img{width:100%;max-height:160px;object-fit:cover;display:block}
+.img-ratio{position:absolute;left:6px;bottom:6px;z-index:2;background:rgba(0,0,0,0.72);color:#e9d5ff;font-size:10px;font-weight:600;font-family:ui-monospace,Consolas,monospace;padding:2px 7px;border-radius:9999px;border:1px solid rgba(168,85,247,0.5);pointer-events:none;white-space:nowrap}
 .remove-btn{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.7);color:white;border:none;display:grid;place-items:center;cursor:pointer}
 .url-input-row{display:flex;gap:6px;margin-top:8px}
 .url-input-row input{flex:1;background:#09090b;border:1px solid #27272a;border-radius:8px;padding:7px 9px;font-size:11px;color:#e5e7eb;outline:none}
@@ -1386,15 +1387,19 @@ function renderParams(){
   }
   applyConditionalState();
 }
+// Aspect-ratio badge on uploaded-image thumbs: overlay "W:H" + WxH tooltip.
+function imgRatioGcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){const t=a%b;a=b;b=t;}return a||1;}
+function imgRatioStr(w,h){if(!w||!h)return '';const g=imgRatioGcd(w,h),a=w/g,b=h/g;if(a>32||b>32){const r=w/h;return r>=1?r.toFixed(2)+':1':'1:'+(1/r).toFixed(2);}return a+':'+b;}
+function paintImgRatio(img){try{const w=img.naturalWidth,h=img.naturalHeight;if(!w||!h)return;const wrap=img.closest('.multi-image-thumb,.upload-preview,.relative');const badge=wrap?wrap.querySelector('.img-ratio'):null;if(!badge)return;badge.textContent=imgRatioStr(w,h);badge.title=w+'×'+h+'px';badge.classList.remove('hidden');}catch(e){}}
 function renderImageControl(name, isMulti){
   const val=uploadedImages[name];
   if(isMulti){
     const urls=Array.isArray(val)?val:[];
-    const thumbs=urls.map((u,i)=>`<div class="relative"><img src="${u}" alt="" class="w-full h-20 object-cover rounded-lg border border-zinc-800"><button class="remove-btn" data-param="${name}" data-idx="${i}"><i class="fas fa-times text-[10px]"></i></button></div>`).join('');
+    const thumbs=urls.map((u,i)=>`<div class="relative"><img src="${u}" alt="" onload="paintImgRatio(this)" class="w-full h-20 object-cover rounded-lg border border-zinc-800"><span class="img-ratio hidden"></span><button class="remove-btn" data-param="${name}" data-idx="${i}"><i class="fas fa-times text-[10px]"></i></button></div>`).join('');
     return `<div class="grid grid-cols-3 gap-2" id="grid_${name}">${thumbs}</div><div class="image-upload-zone mt-2" data-zone="${name}" data-multi="1"><div class="upload-placeholder"><i class="fas fa-images"></i><p class="text-xs mt-1">Click or drop image</p></div></div><div class="url-input-row"><input type="url" placeholder="Or paste https://..." id="url_${name}"><button class="btn-primary-sm" data-add-url="${name}">Add</button></div>`;
   } else {
     if(val){
-      return `<div class="image-upload-zone has-image" data-zone="${name}"><div class="upload-preview"><img src="${val}" alt=""><button class="remove-btn" data-param="${name}"><i class="fas fa-times text-[10px]"></i></button></div></div><div class="url-input-row"><input type="url" placeholder="Paste https://..." id="url_${name}"><button class="btn-primary-sm" data-use-url="${name}">Use URL</button></div>`;
+      return `<div class="image-upload-zone has-image" data-zone="${name}"><div class="upload-preview"><img src="${val}" alt="" onload="paintImgRatio(this)"><span class="img-ratio hidden"></span><button class="remove-btn" data-param="${name}"><i class="fas fa-times text-[10px]"></i></button></div></div><div class="url-input-row"><input type="url" placeholder="Paste https://..." id="url_${name}"><button class="btn-primary-sm" data-use-url="${name}">Use URL</button></div>`;
     }
     return `<div class="image-upload-zone" data-zone="${name}"><div class="upload-placeholder"><i class="fas fa-cloud-upload-alt"></i><p class="text-xs mt-1">Click or drag image</p></div></div><div class="url-input-row"><input type="url" placeholder="Paste https://..." id="url_${name}"><button class="btn-primary-sm" data-use-url="${name}">Use URL</button></div>`;
   }
