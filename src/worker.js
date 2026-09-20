@@ -617,7 +617,7 @@ async function handleApiRoute(request, env, path, ctx) {
     if (!key || !key.startsWith('replicate/')) return jsonResponse({ error: 'key must be under replicate/' }, 400);
     const obj = await env.OUTPUTS_BUCKET.get(key);
     if (!obj) return jsonResponse({ error: 'not found' }, 404);
-    return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream', 'Cache-Control': 'public, max-age=86400' } });
+    return new Response(obj.body, { headers: { 'Content-Type': cloudContentType(key, obj.httpMetadata?.contentType), 'Cache-Control': 'public, max-age=86400' } });
   }
 
   // ─── Generic Replicate proxy (for Test button CORS on workers.dev) ───
