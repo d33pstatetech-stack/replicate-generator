@@ -281,3 +281,9 @@ export const NSFW_LORAS = [
       note: "20 downloads. Stamped Wan 2.1 I2V 720P. Fills lora_list as {path, scale}. 307 MB."
     }
   ];
+
+// Run-verified LoRA ↔ model pairs (Replicate). Green-light source of truth:
+// only pairs below render green. Add a row every time a combo completes.
+export const VERIFIED_LORA_RUNS = [
+  { lora: "D33pStateTech/aznten-flux-schnell-mimicpc", model: "d33pstatetech-stack/aznten_replicate", job: "hp7aqapt7hrmr0d0qjkv0f93t4", when: "2026-09-20" },
+];
