@@ -1,6 +1,8 @@
 .env
 .dev.vars
 node_modules/
+client/node_modules/
+client/dist/
 .wrangler/
 .cache/
 *.log
