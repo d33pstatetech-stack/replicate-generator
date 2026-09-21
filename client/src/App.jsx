@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchHealth, fetchModel, fetchModels } from './api';
+import { deleteCustomLora, fetchCustomLoras, fetchHealth, fetchModel, fetchModels, saveCustomLora } from './api';
 import { schemaDefaults, submitRoute } from './models';
 import { buildSubmitParams } from './params';
 import Enhancer from './components/Enhancer';
@@ -47,6 +47,33 @@ export default function App() {
   const [enhancementId, setEnhancementId] = useState(null);
   const [library, setLibrary] = useState(null); // null | 'templates' | 'saved'
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [customLoras, setCustomLoras] = useState([]);
+
+  const loadCustomLoras = useCallback(async () => {
+    try {
+      setCustomLoras(await fetchCustomLoras());
+    } catch (e) {
+      toast(`Custom LoRAs failed: ${e.message}`, 'error');
+    }
+  }, [toast]);
+
+  const handleAddCustom = useCallback(async (entry) => {
+    const r = await saveCustomLora(entry);
+    await loadCustomLoras();
+    toast(r.deduplicated ? 'Already in library' : `Added ${entry.name}`, r.deduplicated ? 'info' : 'success');
+    return r;
+  }, [toast, loadCustomLoras]);
+
+  const handleDeleteCustom = useCallback(async (id, name) => {
+    if (!window.confirm(`Remove custom LoRA "${name || id}"?`)) return;
+    try {
+      await deleteCustomLora(id);
+      await loadCustomLoras();
+      toast('Custom LoRA removed', 'success');
+    } catch (e) {
+      toast(`Remove failed: ${e.message}`, 'error');
+    }
+  }, [toast, loadCustomLoras]);
 
   const handleDone = useCallback((r) => {
     setHistory((h) => {
@@ -84,8 +111,9 @@ export default function App() {
       } catch {
         /* health is best-effort; catalog is static */
       }
+      loadCustomLoras();
     })();
-  }, [toast]);
+  }, [toast, loadCustomLoras]);
 
   const handleSelect = useCallback(async (id) => {
     setSelectedId(id);
@@ -189,11 +217,11 @@ export default function App() {
           <Section icon="fa-palette" title="My HuggingFace LoRAs" step={4} defaultOpen={false}
             summary="HF quick-fill">
             <p className="text-[11px] text-gray-500 mb-1">Quick-fill a LoRA into the current model's LoRA field. Private repos auto-proxy via the Worker.</p>
-            <LoraPicker variant="user" schema={schema} model={selected} modelId={selectedId} params={params} onParams={mergeParams} notify={toast} />
+            <LoraPicker variant="user" schema={schema} model={selected} modelId={selectedId} params={params} onParams={mergeParams} notify={toast} custom={customLoras} onAddCustom={handleAddCustom} onDeleteCustom={handleDeleteCustom} />
           </Section>
           <Section icon="fa-fire" title="NSFW LoRAs" step={5} defaultOpen={false} summary="18+ only">
             <p className="text-[11px] text-gray-500 mb-1">Fill a LoRA into the current model's LoRA field (extra_lora / lora_weights / lora_url). 18+ only.</p>
-            <LoraPicker variant="nsfw" schema={schema} model={selected} modelId={selectedId} params={params} onParams={mergeParams} notify={toast} />
+            <LoraPicker variant="nsfw" schema={schema} model={selected} modelId={selectedId} params={params} onParams={mergeParams} notify={toast} custom={customLoras} onAddCustom={handleAddCustom} onDeleteCustom={handleDeleteCustom} />
           </Section>
         </div>
 
