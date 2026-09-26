@@ -1,4 +1,4 @@
-# Replicate Prompt Orchestrator
+﻿# Replicate Prompt Orchestrator
 
 A schema-driven prompt console for models on [Replicate](https://replicate.com). Pick a model and the form populates with only the parameters that model actually accepts — enums become dropdowns, bounded numbers become clamped inputs, booleans become toggles, and incompatible combinations are disabled with a reason rather than silently dropped.
 
@@ -213,7 +213,7 @@ usable MIME type.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/health` | Build info and key status *(public)* |
+| GET | `/api/health` | Build info and key status |
 | POST | `/api/replicate/predictions` | Submit a prediction — `{version, input}` or `{model, input}` |
 | GET | `/api/replicate/save-outputs` → POST | Server-side fetch of output URLs into R2 |
 | GET | `/api/replicate/file` | Stream a saved object back out of R2 |
@@ -231,8 +231,10 @@ usable MIME type.
 | POST | `/api/judge` | Proxy to the Jev verifier |
 | POST | `/api/judge/log` | Record a verdict for calibration |
 
-Everything except `/api/health` sits behind the Access gate, so the token is
-never reachable by an unauthenticated caller.
+Every route except `/api/health` is in the Worker's own protected list, so the
+token is never reachable by an unauthenticated caller. An Access application
+covering the whole hostname will intercept `/api/health` at the edge too; the
+split only matters if Access is scoped to specific paths.
 
 ---
 
