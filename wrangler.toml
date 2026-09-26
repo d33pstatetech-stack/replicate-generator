@@ -28,10 +28,10 @@ bucket_name = "genai-assets"
 [vars]
 # REPLICATE_API_TOKEN, VENICE_API_KEY, OPENROUTER_API_KEY set via .dev.vars / dashboard secrets
 # Repos the /api/hf/file proxy may serve, as comma-separated owner/repo or
-# owner/* entries. Empty denies everything: the endpoint is reachable without a
-# session so Replicate's servers can pull private weights, and an open proxy
-# would spend this account's HF token on arbitrary files.
-HF_PROXY_REPO_ALLOWLIST = ""
+# owner/* entries. Reachable without a session so Replicate's servers can pull
+# PRIVATE weights with this account's HF token, which is also why it must not be
+# an open proxy. Public adapters are unaffected: their URLs are never rewritten.
+HF_PROXY_REPO_ALLOWLIST = "D33pStateTech/*"
 # Canonical origin to advertise when rewriting HuggingFace URLs to the proxy.
 # Leave empty to use the incoming request origin.
 HF_PROXY_BASE_URL = ""

@@ -5,7 +5,7 @@
 //   node scripts/sync-legacy-index.mjs public/index.html
 //
 import { readFileSync, writeFileSync } from 'node:fs';
-import { CURATED_LORAS, NSFW_LORAS } from '../client/src/loras-data.js';
+import { CURATED_LORAS, OWN_LORAS, NSFW_LORAS } from '../client/src/loras-data.js';
 import { MODELS } from '../client/src/models.js';
 
 const target = process.argv[2];
@@ -15,29 +15,32 @@ function literal(arr, pad) {
   return '[\n' + arr.map((o) => pad + JSON.stringify(o, null, 2).split('\n').join('\n' + pad)).join(',\n') + '\n]';
 }
 
-// Replace `const NAME = [ ... ];` or `= { ... };` by walking bracket depth.
-function replaceBlock(text, name, body, opener) {
-  const startMark = `const ${name} = ${opener}`;
-  const i = text.indexOf(startMark);
+// Replace `const NAME = [ ... ];` by walking bracket depth.
+// The declaration marker deliberately EXCLUDES the opening bracket, because the
+// replacement body supplies its own — including it would emit `= [[`.
+function replaceBlock(text, name, body) {
+  const decl = `const ${name} = `;
+  const i = text.indexOf(decl);
   if (i < 0) throw new Error(`${name} not found`);
-  const open = opener[0];
-  const close = open === '{' ? '}' : ']';
-  let depth = 0, j = text.indexOf(open, i), end = -1;
+  let depth = 0, j = text.indexOf('[', i), end = -1;
   for (; j < text.length; j++) {
     const c = text[j];
-    if (c === open) depth++;
-    else if (c === close) { depth--; if (depth === 0) { end = j + 1; break; } }
+    if (c === '[') depth++;
+    else if (c === ']') { depth--; if (depth === 0) { end = j + 1; break; } }
   }
   if (end < 0) throw new Error(`unbalanced brackets for ${name}`);
   // swallow a trailing semicolon if present
   let after = end;
   if (text[after] === ';') after++;
-  return text.slice(0, i) + startMark + body + text.slice(after);
+  return text.slice(0, i) + decl + body + text.slice(after);
 }
 
-// 1. LoRA seed lists (USER_LORAS is the legacy name for the curated list)
-src = replaceBlock(src, 'USER_LORAS', literal(CURATED_LORAS, '  '), '[');
-src = replaceBlock(src, 'NSFW_LORAS', literal(NSFW_LORAS, '  '), '[');
+// 1. LoRA seed lists. The client module exposes USER_LORAS as a spread of the
+//    two source lists, but the legacy bundle needs one flat literal, so the
+//    combined set is materialised here.
+const pickerList = [...CURATED_LORAS, ...OWN_LORAS];
+src = replaceBlock(src, 'USER_LORAS', literal(pickerList, '  '));
+src = replaceBlock(src, 'NSFW_LORAS', literal(NSFW_LORAS, '  '));
 
 // 2. Model catalog. The legacy SPA stores schemas as named consts, so only the
 //    entry list is regenerated here; schema consts are handled by the caller.
@@ -46,7 +49,7 @@ const catalogBody = '[\n' + MODELS.map((m) => '  ' + JSON.stringify({
   version: m.version, ...(m.official ? { official: true } : {}),
   description: m.description, schema: m.schema,
 })).join(',\n') + '\n]';
-src = replaceBlock(src, 'CATALOG', catalogBody, '[');
+src = replaceBlock(src, 'CATALOG', catalogBody);
 
 writeFileSync(target, src, 'utf8');
-console.log(`rewrote ${target}: ${CURATED_LORAS.length} curated, ${NSFW_LORAS.length} nsfw, ${MODELS.length} models`);
+console.log(`rewrote ${target}: ${pickerList.length} picker (${CURATED_LORAS.length} curated + ${OWN_LORAS.length} own), ${NSFW_LORAS.length} nsfw, ${MODELS.length} models`);

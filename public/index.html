@@ -678,7 +678,7 @@ const KREA_SCHEMA = {
 };
 
 // Curated HuggingFace LoRAs (public community adapters)
-const USER_LORAS = [[
+const USER_LORAS = [
   {
     "id": "Norod78/Flux_1_Dev_LoRA_Paper-Cutout-Style",
     "name": "Paper Cutout Style (FLUX.1-dev)",
@@ -754,6 +754,94 @@ const USER_LORAS = [[
     "file_url": "https://huggingface.co/jasbloom/Wan2.1-I2V-14B-720P-Diffusers-mmxxii-rank256-lora/resolve/main/Wan2.1-I2V-14B-720P-Diffusers-mmxxii-rank256.safetensors",
     "suggested_target": "wan2.1-lora-i2v (lora_list)",
     "note": "Style adapter for Wan 2.1 image-to-video at 720P. No trigger word. 2.9 GB."
+  },
+  {
+    "id": "D33pStateTech/aznten-flux.1-dev-replicate",
+    "name": "aznten-flux.1-dev-replicate",
+    "base_model": "black-forest-labs/FLUX.1-dev",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "aznten",
+    "file": "aznten-flux.1-dev-replicate_Lora.safetensors",
+    "repo_url": "https://huggingface.co/D33pStateTech/aznten-flux.1-dev-replicate",
+    "file_url": "https://huggingface.co/D33pStateTech/aznten-flux.1-dev-replicate/resolve/main/aznten-flux.1-dev-replicate_Lora.safetensors",
+    "suggested_target": "flux-1-dev-style-lora-inference (lora_url) / aznten_replicate (extra_lora)",
+    "replicate_model": "d33pstatetech-stack/aznten_replicate",
+    "muapi_model": "flux-1-dev-style-lora-inference",
+    "note": "FLUX.1-dev LoRA, trigger 'aznten'. Use as lora_url on MuAPI or extra_lora on Replicate AZNTEN (model=dev)."
+  },
+  {
+    "id": "D33pStateTech/aznten-flux-schnell-mimicpc",
+    "name": "aznten-flux-schnell-mimicpc",
+    "base_model": "black-forest-labs/FLUX.1-schnell",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "aznten",
+    "file": "aznten-flux-schnell-mimicpc.safetensors",
+    "repo_url": "https://huggingface.co/D33pStateTech/aznten-flux-schnell-mimicpc",
+    "file_url": "https://huggingface.co/D33pStateTech/aznten-flux-schnell-mimicpc/resolve/main/aznten-flux-schnell-mimicpc.safetensors",
+    "suggested_target": "aznten_replicate (model=schnell, extra_lora)",
+    "replicate_model": "d33pstatetech-stack/aznten_replicate",
+    "muapi_model": "flux-schnell",
+    "note": "FLUX.1-schnell LoRA, trigger 'aznten'. Checkpoint variant aznten-flux-schnell-mimicpc-000004.safetensors also in repo. Use as extra_lora with model=schnell."
+  },
+  {
+    "id": "D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
+    "name": "aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
+    "base_model": "Qwen/Qwen-Image-2512",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "aznten",
+    "file": "aznten-Qwen-Image-2512-Lora-WaveSpeed-AI.safetensors",
+    "repo_url": "https://huggingface.co/D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
+    "file_url": "https://huggingface.co/D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI/resolve/main/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI.safetensors",
+    "suggested_target": "qwen-image-text-to-image-2512-lora (loras)",
+    "replicate_model": "qwen/qwen-image",
+    "muapi_model": "qwen-image-text-to-image-2512-lora",
+    "note": "Qwen-Image-2512 LoRA, trigger 'aznten'. For MuAPI use qwen-image-text-to-image-2512-lora ΓåÆ loras: [{\"path\":\"...\",\"scale\":1}]. For Replicate use qwen/qwen-image ΓåÆ lora_weights."
+  },
+  {
+    "id": "D33pStateTech/d33pstateten",
+    "name": "d33pstateten",
+    "base_model": "krea/Krea-2-Raw",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "aznten",
+    "file": "pytorch_lora_weights.safetensors",
+    "repo_url": "https://huggingface.co/D33pStateTech/d33pstateten",
+    "file_url": "https://huggingface.co/D33pStateTech/d33pstateten/resolve/main/pytorch_lora_weights.safetensors",
+    "suggested_target": "krea-v2-turbo-lora (loras) or any Krea-2 via diffusers",
+    "replicate_model": "krea/krea-2-large",
+    "muapi_model": "krea-v2-turbo-lora",
+    "note": "Krea-2-Raw LoRA, trigger aznten. Public repo. For MuAPI use krea-v2-turbo-lora ΓåÆ loras: [{\"path\":\"...\",\"scale\":1}]"
+  },
+  {
+    "id": "D33pStateTech/d33pstateLora",
+    "name": "d33pstateLora",
+    "base_model": "black-forest-labs/FLUX.1-dev",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "asian ten",
+    "file": "flux-asian-ten-v2-000024.safetensors",
+    "repo_url": "https://huggingface.co/D33pStateTech/d33pstateLora",
+    "file_url": "https://huggingface.co/D33pStateTech/d33pstateLora/resolve/main/flux-asian-ten-v2-000024.safetensors",
+    "suggested_target": "flux-dev-lora or flux-1-dev-style-lora-inference (lora_url) / aznten_replicate (extra_lora)",
+    "muapi_model": "flux-1-dev-style-lora-inference",
+    "note": "FLUX.1-dev LoRA, trigger 'asian ten'. Use as lora_url on MuAPI or extra_lora on Replicate AZNTEN."
+  },
+  {
+    "id": "D33pStateTech/asian-ten-wan21-lora",
+    "name": "asian-ten-wan21-lora",
+    "base_model": "Wan-AI/Wan2.1-T2V-14B",
+    "pipeline": "video-generation",
+    "private": false,
+    "instance_prompt": "",
+    "file": "asian_ten_wan21.safetensors",
+    "repo_url": "https://huggingface.co/D33pStateTech/asian-ten-wan21-lora",
+    "file_url": "https://huggingface.co/D33pStateTech/asian-ten-wan21-lora/resolve/main/asian_ten_wan21.safetensors",
+    "suggested_target": "wan2.1-lora-t2v / wan2.1-lora-i2v / wavespeedai/wan-2.1-t2v-480p (lora_weights)",
+    "muapi_model": "wan2.1-lora-t2v",
+    "note": "Wan2.1 T2V LoRA ΓÇö use as lora_weights on wavespeedai/wan-2.1-t2v-480p or MuAPI wan2.1-lora-*"
   }
 ]
 
@@ -761,7 +849,7 @@ const USER_LORAS = [[
 // Sourced 2026-09-11 via HF MCP (ranked by likes) + 2026-09-16 Qwen additions.
 // Rendered grouped (image→video, by base-model family) via renderLoraListInto(..., grouped=true).
 // All Public. 18+ only.
-const NSFW_LORAS = [[
+const NSFW_LORAS = [
   {
     "id": "xey/sldr_flux_nsfw_v2-studio",
     "name": "sldr_flux_nsfw_v2-studio",
@@ -771,6 +859,7 @@ const NSFW_LORAS = [[
     "file": "sldr_flux_nsfw_v2-studio.safetensors",
     "repo_url": "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio",
     "file_url": "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio/resolve/main/sldr_flux_nsfw_v2-studio.safetensors",
+    "replicate_model": "d33pstatetech-stack/aznten_replicate",
     "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
     "note": "307 likes · 1.1M downloads. Photorealistic-oriented adapter. No documented trigger. 687 MB."
   },
@@ -783,6 +872,7 @@ const NSFW_LORAS = [[
     "file": "flux_lustly-ai_v1.safetensors",
     "repo_url": "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
     "file_url": "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1/resolve/main/flux_lustly-ai_v1.safetensors",
+    "replicate_model": "d33pstatetech-stack/aznten_replicate",
     "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
     "note": "275 likes · 155.5K downloads. General uncensored adapter. No trigger word. 344 MB."
   },
@@ -796,6 +886,7 @@ const NSFW_LORAS = [[
     "file": "NSFW_master.safetensors",
     "repo_url": "https://huggingface.co/lexa862/NSFWmodel",
     "file_url": "https://huggingface.co/lexa862/NSFWmodel/resolve/main/NSFW_master.safetensors",
+    "replicate_model": "d33pstatetech-stack/aznten_replicate",
     "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
     "note": "78 likes · 459.7K downloads. Trigger 'Nude'. 172 MB, permissive unlicense."
   },
@@ -813,6 +904,7 @@ const NSFW_LORAS = [[
     "file": "NSFW_master_Flux.safetensors",
     "repo_url": "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX",
     "file_url": "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX/resolve/main/NSFW_master_Flux.safetensors",
+    "replicate_model": "d33pstatetech-stack/aznten_replicate",
     "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
     "note": "68 likes · 30.3K downloads. Triggers 'NSFW' or 'Nude'. 172 MB. MIT."
   },
@@ -825,6 +917,7 @@ const NSFW_LORAS = [[
     "file": "lora.safetensors",
     "repo_url": "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2",
     "file_url": "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2/resolve/main/lora.safetensors",
+    "replicate_model": "d33pstatetech-stack/aznten_replicate",
     "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
     "note": "34 likes · 33.1K downloads. Tagged ultra-realistic. No documented trigger. 687 MB."
   },
@@ -983,7 +1076,9 @@ const H3_SCHEMA = {
   }
 };
 
-const CATALOG = [[
+const CATALOG = [
+  {"id":"d33pstatetech-stack/aznten_replicate","name":"AZNTEN Flux LoRA (dev/schnell)","group":"image","category":"Image · Flux LoRA","version":"d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453","description":"Flux-based LoRA trained with trigger word aznten. dev @28 steps quality, schnell @4 steps speed. Conditional width/height on aspect_ratio=custom, max 1440.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x-order":0,"description":"Prompt for generated image. If you include the `trigger_word` used in the training process you are more likely to activate the trained object, style, or concept in the resulting image."},"image":{"type":"string","title":"Image","format":"uri","x-order":1,"description":"Input image for image to image or inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},"mask":{"type":"string","title":"Mask","format":"uri","x-order":2,"description":"Image mask for image inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},"aspect_ratio":{"enum":["1:1","16:9","21:9","3:2","2:3","4:5","5:4","3:4","4:3","9:16","9:21","custom"],"type":"string","title":"aspect_ratio","description":"Aspect ratio for the generated image. If custom is selected, uses height and width below & will run in bf16 mode","default":"1:1","x-order":3},"height":{"type":"integer","title":"Height","maximum":1440,"minimum":256,"x-order":4,"description":"Height of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},"width":{"type":"integer","title":"Width","maximum":1440,"minimum":256,"x-order":5,"description":"Width of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},"prompt_strength":{"type":"number","title":"Prompt Strength","default":0.8,"maximum":1,"minimum":0,"x-order":6,"description":"Prompt strength when using img2img. 1.0 corresponds to full destruction of information in image"},"model":{"enum":["dev","schnell"],"type":"string","title":"model","description":"Which model to run inference with. The dev model performs best with around 28 inference steps but the schnell model only needs 4 steps.","default":"dev","x-order":7},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"maximum":4,"minimum":1,"x-order":8,"description":"Number of outputs to generate"},"num_inference_steps":{"type":"integer","title":"Num Inference Steps","default":28,"maximum":50,"minimum":1,"x-order":9,"description":"Number of denoising steps. More steps can give more detailed images, but take longer."},"guidance_scale":{"type":"number","title":"Guidance Scale","default":3,"maximum":10,"minimum":0,"x-order":10,"description":"Guidance scale for the diffusion process. Lower values can give more realistic images. Good values to try are 2, 2.5, 3 and 3.5"},"seed":{"type":"integer","title":"Seed","x-order":11,"description":"Random seed. Set for reproducible generation"},"output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","description":"Format of the output images","default":"webp","x-order":12},"output_quality":{"type":"integer","title":"Output Quality","default":80,"maximum":100,"minimum":0,"x-order":13,"description":"Quality when saving the output images, from 0 to 100. 100 is best quality, 0 is lowest quality. Not relevant for .png outputs"},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"x-order":14,"description":"BYPASS NSFW filter — when true, Replicate does NOT block nude/NSFW outputs. Validated live: NSFW prompt with false → 'All generated images contained NSFW content' failed; with true → succeeded (https://replicate.delivery/...). Default is now true for unrestricted prompts."},"go_fast":{"type":"boolean","title":"Go Fast","default":false,"x-order":15,"description":"Run faster predictions with model optimized for speed (currently fp8 quantized); disable to run in original bf16"},"megapixels":{"enum":["1","0.25"],"type":"string","title":"megapixels","description":"Approximate number of megapixels for generated image","default":"1","x-order":16},"lora_scale":{"type":"number","title":"Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":18,"description":"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."},"extra_lora":{"type":"string","title":"Extra Lora","x-order":19,"description":"Load LoRA weights. Supports Replicate models in the format <owner>/<username> or <owner>/<username>/<version>, HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet. For example, 'fofr/flux-pixar-cars'"},"extra_lora_scale":{"type":"number","title":"Extra Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":20,"description":"Determines how strongly the extra LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."}}}},
+  {"id":"d33pstatetech-stack/aznten-flux.1-dev-replicate","name":"AZNTEN FLUX.1-dev (standalone)","group":"image","category":"Image · Flux LoRA","version":"d33pstatetech-stack/aznten-flux.1-dev-replicate:be6b57b05d69042bac4db99c9eebb22afcaf9e7aa3839cdd30e5cebd8c34d604","description":"Trained FLUX.1-dev LoRA as standalone model (2026-09-07) — baked weights, trigger word, lora_scale -1..3, extra_lora + replicate_weights stacking slots. Unrestricted by default.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x-order":0,"description":"Prompt for generated image. If you include the `trigger_word` used in the training process you are more likely to activate the trained object, style, or concept in the resulting image."},"image":{"type":"string","title":"Image","format":"uri","x-order":1,"description":"Input image for image to image or inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},"mask":{"type":"string","title":"Mask","format":"uri","x-order":2,"description":"Image mask for image inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},"aspect_ratio":{"enum":["1:1","16:9","21:9","3:2","2:3","4:5","5:4","3:4","4:3","9:16","9:21","custom"],"type":"string","title":"aspect_ratio","description":"Aspect ratio for the generated image. If custom is selected, uses height and width below & will run in bf16 mode","default":"1:1","x-order":3},"height":{"type":"integer","title":"Height","maximum":1440,"minimum":256,"x-order":4,"description":"Height of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},"width":{"type":"integer","title":"Width","maximum":1440,"minimum":256,"x-order":5,"description":"Width of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},"prompt_strength":{"type":"number","title":"Prompt Strength","default":0.8,"maximum":1,"minimum":0,"x-order":6,"description":"Prompt strength when using img2img. 1.0 corresponds to full destruction of information in image"},"model":{"enum":["dev","schnell"],"type":"string","title":"model","description":"Which model to run inference with. The dev model performs best with around 28 inference steps but the schnell model only needs 4 steps.","default":"dev","x-order":7},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"maximum":4,"minimum":1,"x-order":8,"description":"Number of outputs to generate"},"num_inference_steps":{"type":"integer","title":"Num Inference Steps","default":28,"maximum":50,"minimum":1,"x-order":9,"description":"Number of denoising steps. More steps can give more detailed images, but take longer."},"guidance_scale":{"type":"number","title":"Guidance Scale","default":3,"maximum":10,"minimum":0,"x-order":10,"description":"Guidance scale for the diffusion process. Lower values can give more realistic images. Good values to try are 2, 2.5, 3 and 3.5"},"seed":{"type":"integer","title":"Seed","x-order":11,"description":"Random seed. Set for reproducible generation"},"output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","description":"Format of the output images","default":"webp","x-order":12},"output_quality":{"type":"integer","title":"Output Quality","default":80,"maximum":100,"minimum":0,"x-order":13,"description":"Quality when saving the output images, from 0 to 100. 100 is best quality, 0 is lowest quality. Not relevant for .png outputs"},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"x-order":14,"description":"BYPASS NSFW filter — when true, Replicate does NOT block nude/NSFW outputs. Validated live: NSFW prompt with false → 'All generated images contained NSFW content' failed; with true → succeeded (https://replicate.delivery/...). Default is now true for unrestricted prompts."},"go_fast":{"type":"boolean","title":"Go Fast","default":false,"x-order":15,"description":"Run faster predictions with model optimized for speed (currently fp8 quantized); disable to run in original bf16"},"megapixels":{"enum":["1","0.25"],"type":"string","title":"megapixels","description":"Approximate number of megapixels for generated image","default":"1","x-order":16},"lora_scale":{"type":"number","title":"Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":18,"description":"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."},"extra_lora":{"type":"string","title":"Extra Lora","x-order":19,"description":"Load LoRA weights. Supports Replicate models in the format <owner>/<username> or <owner>/<username>/<version>, HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet. For example, 'fofr/flux-pixar-cars'"},"extra_lora_scale":{"type":"number","title":"Extra Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":20,"description":"Determines how strongly the extra LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."},"replicate_weights":{"type":"string","title":"Replicate Weights","x-order":21,"description":"Load LoRA weights from a Replicate model (owner/name or owner/name/version). Second stacking slot alongside extra_lora."}}}},
   {"id":"fofr/flux-pixar-cars","name":"FLUX Pixar Cars (LoRA wrapper)","group":"image","category":"Image · Flux LoRA","version":"fofr/flux-pixar-cars:43768954c7bdc93d3bd0f01052652f8ce4e32781a37a7e832c048f7dc70b26bd","description":"Public FLUX LoRA wrapper — good reference for the richer input shape: conditional width/height behind aspect_ratio=custom (max 1440), go_fast / megapixels quantization, and two LoRA slots (extra_lora plus replicate_weights).","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"mask":{"type":"string","title":"Mask","format":"uri","x-order":2,"description":"Image mask for image inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},"seed":{"type":"integer","title":"Seed","x-order":11,"description":"Random seed. Set for reproducible generation"},"image":{"type":"string","title":"Image","format":"uri","x-order":1,"description":"Input image for image to image or inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},"model":{"allOf":[{"$ref":"#/components/schemas/model"}],"default":"dev","x-order":7,"description":"Which model to run inference with. The dev model performs best with around 28 inference steps but the schnell model only needs 4 steps."},"width":{"type":"integer","title":"Width","maximum":1440,"minimum":256,"x-order":5,"description":"Width of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},"height":{"type":"integer","title":"Height","maximum":1440,"minimum":256,"x-order":4,"description":"Height of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},"prompt":{"type":"string","title":"Prompt","x-order":0,"description":"Prompt for generated image. If you include the `trigger_word` used in the training process you are more likely to activate the trained object, style, or concept in the resulting image."},"go_fast":{"type":"boolean","title":"Go Fast","default":false,"x-order":15,"description":"Run faster predictions with model optimized for speed (currently fp8 quantized); disable to run in original bf16"},"extra_lora":{"type":"string","title":"Extra Lora","x-order":19,"description":"Load LoRA weights. Supports Replicate models in the format <owner>/<username> or <owner>/<username>/<version>, HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet. For example, 'fofr/flux-pixar-cars'"},"lora_scale":{"type":"number","title":"Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":18,"description":"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."},"megapixels":{"allOf":[{"$ref":"#/components/schemas/megapixels"}],"default":"1","x-order":16,"description":"Approximate number of megapixels for generated image"},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"maximum":4,"minimum":1,"x-order":8,"description":"Number of outputs to generate"},"aspect_ratio":{"allOf":[{"$ref":"#/components/schemas/aspect_ratio"}],"default":"1:1","x-order":3,"description":"Aspect ratio for the generated image. If custom is selected, uses height and width below & will run in bf16 mode"},"output_format":{"allOf":[{"$ref":"#/components/schemas/output_format"}],"default":"webp","x-order":12,"description":"Format of the output images"},"guidance_scale":{"type":"number","title":"Guidance Scale","default":3,"maximum":10,"minimum":0,"x-order":10,"description":"Guidance scale for the diffusion process. Lower values can give more realistic images. Good values to try are 2, 2.5, 3 and 3.5"},"output_quality":{"type":"integer","title":"Output Quality","default":80,"maximum":100,"minimum":0,"x-order":13,"description":"Quality when saving the output images, from 0 to 100. 100 is best quality, 0 is lowest quality. Not relevant for .png outputs"},"prompt_strength":{"type":"number","title":"Prompt Strength","default":0.8,"maximum":1,"minimum":0,"x-order":6,"description":"Prompt strength when using img2img. 1.0 corresponds to full destruction of information in image"},"extra_lora_scale":{"type":"number","title":"Extra Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":20,"description":"Determines how strongly the extra LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."},"replicate_weights":{"type":"string","title":"Replicate Weights","x-order":17,"description":"Load LoRA weights. Supports Replicate models in the format <owner>/<username> or <owner>/<username>/<version>, HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet. For example, 'fofr/flux-pixar-cars'"},"num_inference_steps":{"type":"integer","title":"Num Inference Steps","default":28,"maximum":50,"minimum":1,"x-order":9,"description":"Number of denoising steps. More steps can give more detailed images, but take longer."},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":false,"x-order":14,"description":"Disable safety checker for generated images."}}}},
   {"id":"black-forest-labs/flux-schnell","name":"FLUX.1 [schnell]","group":"image","category":"Image · FLUX","version":"black-forest-labs/flux-schnell:c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e","description":"Speed-optimized FLUX — 4 steps is enough. Latest 2025-06-25.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","description":"Text prompt","x_order":0},"aspect_ratio":{"enum":["1:1","16:9","21:9","3:2","2:3","4:5","5:4","3:4","4:3","9:16"],"type":"string","title":"aspect_ratio","description":"Aspect ratio","default":"1:1","x_order":1},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"minimum":1,"maximum":4,"x_order":2},"num_inference_steps":{"type":"integer","title":"Steps","default":4,"minimum":1,"maximum":10,"description":"schnell only needs 4 steps","x_order":3},"guidance_scale":{"type":"number","title":"Guidance","default":3,"minimum":0,"maximum":10,"x_order":4},"seed":{"type":"integer","title":"Seed","x_order":5},"output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","default":"webp","x_order":6},"output_quality":{"type":"integer","title":"Output Quality","default":80,"minimum":0,"maximum":100,"x_order":7},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"description":"Bypass NSFW filter","x_order":8},"go_fast":{"type":"boolean","title":"Go Fast","default":true,"description":"Always fast for schnell","x_order":9},"megapixels":{"enum":["1"],"type":"string","title":"megapixels","default":"1","x_order":10}}}},
   {"id":"black-forest-labs/flux-dev","name":"FLUX.1 [dev]","group":"image","category":"Image · FLUX","version":"black-forest-labs/flux-dev:6e4a938f85952bdabcc15aa329178c4d681c52bf25a0342403287dc26944661d","description":"Quality FLUX — ~28 steps. Latest.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","description":"Text prompt","x_order":0},"aspect_ratio":{"enum":["1:1","16:9","21:9","3:2","2:3","4:5","5:4","3:4","4:3","9:16"],"type":"string","title":"aspect_ratio","description":"Aspect ratio","default":"1:1","x_order":1},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"minimum":1,"maximum":4,"x_order":2},"num_inference_steps":{"type":"integer","title":"Steps","default":28,"minimum":1,"maximum":50,"description":"schnell only needs 4 steps","x_order":3},"guidance_scale":{"type":"number","title":"Guidance","default":3,"minimum":0,"maximum":10,"x_order":4},"seed":{"type":"integer","title":"Seed","x_order":5},"output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","default":"webp","x_order":6},"output_quality":{"type":"integer","title":"Output Quality","default":80,"minimum":0,"maximum":100,"x_order":7},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"description":"Bypass NSFW filter","x_order":8},"go_fast":{"type":"boolean","title":"Go Fast","default":false,"description":"Always fast for schnell","x_order":9},"megapixels":{"enum":["1","0.25"],"type":"string","title":"megapixels","default":"1","x_order":10}}}},

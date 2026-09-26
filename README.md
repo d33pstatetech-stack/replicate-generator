@@ -255,9 +255,15 @@ Two plain vars control the private-LoRA proxy, both defaulting to a safe state:
 | `HF_PROXY_BASE_URL` | `""` (request origin) | Canonical origin advertised when rewriting Hugging Face URLs to the proxy |
 
 `/api/hf/file` is reachable without a session, because Replicate's own servers
-need to pull weights without holding Hugging Face credentials. That makes an
-open proxy a real risk, so the allowlist is empty by default and only exact
-entries or owner wildcards are honoured.
+need to pull **private** weights without holding Hugging Face credentials. That
+makes an open proxy a real risk, so the allowlist is closed by default and only
+exact entries or owner wildcards are honoured.
+
+The allowlist does **not** restrict which LoRAs can be used. An unlisted repo has
+its URL passed through untouched, and Replicate fetches it from the Hub directly
+and anonymously — the normal path for every public adapter. The gate only decides
+which repos this Worker will fetch *on Replicate's behalf* using this account's
+token, which is what private or gated repos need.
 
 Secrets are set with `wrangler secret put` and injected per request. For local
 development they live in `.dev.vars`, copied from `.dev.vars.example`.
@@ -348,11 +354,14 @@ LoRAs can be browsed from Hugging Face and CivitAI, or resolved from a pasted
 model-card URL through `POST /api/lora/resolve`. Anything added by hand joins a
 shared library in D1, deduplicated on source + repo + file.
 
-`client/src/loras-data.js` ships a small seed list of public community adapters,
-one per family the compatibility filter understands, so the picker is useful on a
-fresh clone. It is a starting point, not a curated endorsement. The seed
-includes entries for FLUX.1, Qwen-Image, Krea, and Wan 2.1, which also keeps the
-tier dots visible on a first run.
+`client/src/loras-data.js` holds the picker's seed data as three lists that share
+one shape: `CURATED_LORAS` (public community adapters), `OWN_LORAS` (the
+maintainer's own trained adapters), and `NSFW_LORAS` (uncensored, shown in its
+own picker variant). `USER_LORAS` is the first two combined, which is what the
+default picker renders. All of it is plain data — add, remove, or reorder freely.
+The curated list spans one adapter per family the compatibility filter
+understands (FLUX.1, Qwen-Image, Krea, Wan 2.1), which keeps the tier dots
+visible on a first run.
 
 Picking a LoRA the selected model cannot load wastes a generation, so the
 pickers filter by compatibility using a three-tier model in
