@@ -15,7 +15,18 @@
  *   * → static assets (index.html)
  */
 
-const PROTECTED_API_PREFIXES = ['/api/enhance', '/api/optimize', '/api/prompts', '/api/llm-config', '/api/replicate', '/api/hf', '/api/cloud', '/api/history', '/api/lora', '/api/judge']; // fail-closed without Cloudflare Access headers (defense-in-depth; edge Access app is the primary gate)
+// /api/hf is deliberately ABSENT. /api/hf/file is the weight-fetch endpoint
+// that Replicate's own servers call without a session, so gating it here would
+// make it unreachable to the only caller that matters. It is reachable only
+// because Cloudflare Access bypasses that path, and it is constrained by
+// HF_PROXY_REPO_ALLOWLIST in this file, so it serves allowlisted repos only.
+// The browser-facing LoRA endpoints (/api/lora, /api/loras) stay protected:
+// they are part of the authenticated UI and one of them writes to the shared
+// library.
+// Matching is by string prefix, so /api/lora and /api/loras are both needed:
+// '/api/loras/custom'.startsWith('/api/lora') is false. The original list had
+// only '/api/lora', which left the shared custom-LoRA library unwrapped.
+const PROTECTED_API_PREFIXES = ['/api/enhance', '/api/optimize', '/api/prompts', '/api/llm-config', '/api/replicate', '/api/cloud', '/api/history', '/api/lora', '/api/loras', '/api/judge']; // fail-closed without Cloudflare Access headers (defense-in-depth; edge Access app is the primary gate)
 
 const DEFAULT_LLM_PROVIDERS = [
   { baseUrl: 'https://openrouter.ai/api/v1', model: 'liquid/lfm-2.5-2.6b:free', apiKey: '' },
