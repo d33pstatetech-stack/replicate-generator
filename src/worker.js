@@ -525,7 +525,20 @@ async function handleApiRoute(request, env, path, ctx) {
     const url = new URL(request.url);
     const repo = url.searchParams.get('repo');
     const file = url.searchParams.get('file') || 'pytorch_lora_weights.safetensors';
-    if (!repo) return jsonResponse({ error: 'repo query param required, e.g. ?repo=D33pStateTech/d33pstateten&file=pytorch_lora_weights.safetensors' }, 400);
+    if (!repo) return jsonResponse({ error: 'repo query param required, e.g. ?repo=owner/repo&file=pytorch_lora_weights.safetensors' }, 400);
+    if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(repo)) {
+      return jsonResponse({ error: 'repo must be in owner/repo form' }, 400);
+    }
+    // Allowlist: this path is reachable without a session so Replicate's own
+    // servers can pull weights without HF credentials. Serving arbitrary repos
+    // would let anyone proxy any HF file on this account's token, so only repos
+    // named in HF_PROXY_REPO_ALLOWLIST are served. Unset means deny.
+    if (!hfRepoAllowed(env, repo)) {
+      return jsonResponse({ error: 'repo not allowlisted', hint: 'add it to the HF_PROXY_REPO_ALLOWLIST var (comma-separated owner/repo or owner/*)' }, 403);
+    }
+    if (/[/\\]/.test(file) || file.includes('..')) {
+      return jsonResponse({ error: 'invalid file param' }, 400);
+    }
     const hfUrl = `https://huggingface.co/${repo}/resolve/main/${file}`;
     const headers = {};
     const hfToken = env.HUGGINGFACE_API_KEY || '';
@@ -544,22 +557,30 @@ async function handleApiRoute(request, env, path, ctx) {
   if (path === '/api/replicate/predictions' && request.method === 'POST') {
     if (!REPLICATE_API_TOKEN) return jsonResponse({ error: 'REPLICATE_API_TOKEN not configured on Worker' }, 500);
     let body; try { body = await request.json(); } catch { return jsonResponse({ error: 'Invalid JSON' }, 400); }
-    // Auto-rewrite private HF LoRA URLs to proxied Worker URLs so Replicate can fetch without HF auth
+    // Auto-rewrite HuggingFace URLs to proxied Worker URLs so Replicate can fetch
+    // them without HF auth. Only repos on the allowlist qualify; everything else
+    // is passed through untouched.
     try {
-      const hfToken = env.HUGGINGFACE_API_KEY || '';
-      if (hfToken && JSON.stringify(body).includes('huggingface.co/D33pStateTech/d33pstateten')) {
+      const allow = hfProxyAllowlist(env);
+      if (env.HUGGINGFACE_API_KEY && allow.length) {
         const bodyStr = JSON.stringify(body);
-        const proxied = bodyStr.replace(/https:\/\/huggingface\.co\/D33pStateTech\/d33pstateten[^"]*/g, (m)=>{
-          // Preserve file path if present, else use default
-          let file = 'pytorch_lora_weights.safetensors';
-          const mm = m.match(/\/resolve\/main\/([^"?]+)/);
-          if(mm) file = mm[1];
-          const origin = new URL(request.url).origin;
-          return `${origin}/api/hf/file?repo=D33pStateTech/d33pstateten&file=${encodeURIComponent(file)}`;
-        });
-        // Also handle bare repo URL without /resolve
-        const proxied2 = proxied.replace(/huggingface\.co\/D33pStateTech\/d33pstateten(?!\/resolve)/g, new URL(request.url).origin + '/api/hf/file?repo=D33pStateTech/d33pstateten&file=pytorch_lora_weights.safetensors');
-        body = JSON.parse(proxied2);
+        if (/huggingface\.co\//.test(bodyStr)) {
+          const origin = (env.HF_PROXY_BASE_URL || new URL(request.url).origin).replace(/\/$/, '');
+          const proxied = bodyStr.replace(
+            /https?:\/\/huggingface\.co\/([A-Za-z0-9._-]+\/[A-Za-z0-9._-]+)(\/resolve\/[^"?]+)?/g,
+            (m, repo, tail) => {
+              if (!hfRepoAllowedIn(allow, repo)) return m;
+              const file = (tail || '').replace(/^\/resolve\/[^/]+\//, '') || 'pytorch_lora_weights.safetensors';
+              return `${origin}/api/hf/file?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`;
+            },
+          ).replace(
+            /(?<!https:\/\/)huggingface\.co\/([A-Za-z0-9._-]+\/[A-Za-z0-9._-]+)(?!\/resolve)/g,
+            (m, repo) => (hfRepoAllowedIn(allow, repo)
+              ? `${origin}/api/hf/file?repo=${encodeURIComponent(repo)}&file=pytorch_lora_weights.safetensors`
+              : m),
+          );
+          if (proxied !== bodyStr) body = JSON.parse(proxied);
+        }
       }
     } catch(e){ console.error('HF rewrite failed', e); }
     const prefer = request.headers.get('Prefer');
@@ -983,6 +1004,28 @@ function customLoraToEntry(row) {
     formats, note: row.version_note ? `Custom · ${row.version_note}` : 'Custom added from URL',
     suggested_target: '',
   };
+}
+
+// Repos the /api/hf/file proxy is permitted to serve. Configured as a
+// comma-separated list of exact `owner/repo` entries or `owner/*` wildcards.
+// Empty (the default) denies everything.
+function hfProxyAllowlist(env) {
+  return String(env.HF_PROXY_REPO_ALLOWLIST || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => /^[A-Za-z0-9._-]+\/([A-Za-z0-9._-]+|\*)$/.test(s));
+}
+
+function hfRepoAllowedIn(allow, repo) {
+  if (!allow || !allow.length) return false;
+  return allow.some((entry) => {
+    if (entry.endsWith('/*')) return repo.startsWith(entry.slice(0, -1));
+    return entry === repo;
+  });
+}
+
+function hfRepoAllowed(env, repo) {
+  return hfRepoAllowedIn(hfProxyAllowlist(env), repo);
 }
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {

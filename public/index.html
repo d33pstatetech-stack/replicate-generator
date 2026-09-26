@@ -149,30 +149,29 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
   <div class="grid grid-cols-1 xl:grid-cols-[360px_1fr_380px] lg:grid-cols-[320px_1fr] gap-6">
     <!-- LEFT -->
     <div class="space-y-4">
-      <!-- Quick LoRA Picker — HuggingFace (D33pStateTech) -->
+      <!-- Quick LoRA Picker — HuggingFace -->
       <section class="panel" id="loraQuickPanel">
         <div class="flex items-center justify-between">
-          <h2 class="panel-title !mb-0"><i class="fas fa-palette"></i> My LoRAs — HF + Replicate</h2>
-          <span class="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full">6 • HF + Replicate</span>
+          <h2 class="panel-title !mb-0"><i class="fas fa-palette"></i> Curated LoRAs — HF + Replicate</h2>
+          <span class="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full">HF + Replicate</span>
         </div>
-        <p class="text-[11px] text-zinc-500 mt-1 mb-2">HF token detected for <code class="bg-zinc-900 px-1 rounded">D33pStateTech</code> — quick copy repo or <code>.safetensors</code> URL for <code>extra_lora</code> / <code>lora_weights</code>. <span class="text-emerald-300">No HF token entry needed in LoRA box</span> — <span class="text-amber-300">Private</span> is auto-proxied via Worker using <code>HUGGINGFACE_API_KEY</code> from <code>.env</code>.</p>
+        <p class="text-[11px] text-zinc-500 mt-1 mb-2">Public community adapters — quick copy repo or <code>.safetensors</code> URL for <code>extra_lora</code> / <code>lora_weights</code>. <span class="text-emerald-300">No HF token entry needed in LoRA box</span> — <span class="text-amber-300">Private</span> repos are auto-proxied via Worker using <code>HUGGINGFACE_API_KEY</code> when the repo is on <code>HF_PROXY_REPO_ALLOWLIST</code>.</p>
         <div class="mb-2 bg-amber-950/40 border border-amber-800/60 rounded-lg px-3 py-2 text-[10px] text-amber-200/90 leading-relaxed">
           <div class="font-semibold text-amber-300"><i class="fas fa-exclamation-triangle mr-1"></i>Replicate LoRA quirk — read before Filling</div>
           <div class="mt-1">Bare <code>owner/repo</code> is misread as a <em>Replicate</em> model (loader fetches <code>replicate.com/…/_weights</code> → 404) and any other non-matching URL gets downloaded as a tarball → <code>unable to unpack tarball</code> / <code>Failed to download tarball</code>. Always use one of the three labeled formats below: <code>huggingface.co/owner/repo</code> (prefix required), direct <code>/resolve/main/*.safetensors</code> file URL (required when a repo holds 2+ .safetensors files), or the <code>.tar</code> from the training output page (always works). For future trainings, grab the <code>flux-lora.tar</code> download link from the output page.</div>
         </div>
         <div class="flex gap-1.5 mb-2">
           <button id="btnToggleLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show LoRAs</button>
-          <a href="https://huggingface.co/D33pStateTech" target="_blank" class="btn-secondary text-xs" title="Open HF profile"><i class="fas fa-external-link-alt"></i></a>
         </div>
         <div id="loraList" class="space-y-2 hidden"></div>
-        <div id="loraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: Select a model that accepts LoRA (e.g. <code>aznten_replicate</code> → <code>extra_lora</code>, <code>wavespeedai/wan-2.1-t2v-480p</code> → <code>lora_weights</code>) then click <span class="text-violet-300">Fill</span> to auto-fill.</div>
+        <div id="loraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: Select a model that accepts LoRA (e.g. <code>fofr/flux-pixar-cars</code> → <code>extra_lora</code>, <code>wavespeedai/wan-2.1-t2v-480p</code> → <code>lora_weights</code>) then click <span class="text-violet-300">Fill</span> to auto-fill.</div>
       </section>
       <section class="panel">
         <h2 class="panel-title"><i class="fas fa-brain"></i> Model</h2>
         <div class="relative" id="modelSelectorWrap">
           <div class="model-search-box" id="modelSearchBox">
             <i class="fas fa-search search-icon"></i>
-            <input id="modelSearch" type="text" placeholder="Search models... (aznten, flux, sdxl...)" class="model-search-input">
+            <input id="modelSearch" type="text" placeholder="Search models... (flux, wan, krea...)" class="model-search-input">
             <span id="modelCount" class="model-count-badge"></span>
           </div>
           <div id="modelDropdown" class="model-dropdown hidden"></div>
@@ -219,7 +218,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
             <button id="btnClear" class="icon-btn" title="Clear"><i class="fas fa-eraser"></i></button>
           </div>
         </div>
-        <textarea id="promptInput" class="prompt-textarea" placeholder="Describe what you want to generate in detail... Include the trigger word (e.g. 'aznten') if the LoRA was trained with one."></textarea>
+        <textarea id="promptInput" class="prompt-textarea" placeholder="Describe what you want to generate in detail... Include the trigger word if the LoRA was trained with one."></textarea>
         <div class="flex items-center justify-between mt-2">
           <span id="charCount" class="text-[11px] text-zinc-600">0 chars</span>
           <span class="text-[11px] text-zinc-600"><kbd class="kbd">Ctrl</kbd>+<kbd class="kbd">Enter</kbd> to generate &middot; <label class="inline-flex items-center gap-1 ml-1 cursor-pointer"><input type="checkbox" id="chkPreferWait" checked class="accent-violet-600"> Prefer: wait</label></span>
@@ -330,34 +329,34 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
       <section class="panel">
         <h2 class="panel-title"><i class="fas fa-lightbulb"></i> Tips</h2>
         <ul class="tips-list">
-          <li><i class="fas fa-check"></i> Include LoRA trigger word (aznten) for strong identity lock</li>
+          <li><i class="fas fa-check"></i> Include the LoRA trigger word for a stronger identity lock</li>
           <li><i class="fas fa-check"></i> dev = ~28 steps quality; schnell = ~4 steps speed</li>
           <li><i class="fas fa-check"></i> Disable <code>go_fast</code> to unlock custom width/height</li>
           <li><i class="fas fa-check"></i> Use negative lora_scale to suppress style</li>
         </ul>
         <div class="mt-3 p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-[11px] text-zinc-500">
           <div class="font-semibold text-zinc-400 mb-1">Tested model</div>
-          <code class="text-[10px] break-all">d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453</code>
-          <div class="mt-1">Unrestricted by default (<code>disable_safety_checker=true</code>). Verified 2026-09-02: nude prompt with <code>true</code> → <code>succeeded</code>, with <code>false</code> → <code>NSFW content detected</code>.</div>
+          <code class="text-[10px] break-all">fofr/flux-pixar-cars:43768954c7bdc93d3bd0f01052652f8ce4e32781a37a7e832c048f7dc70b26bd</code>
+          <div class="mt-1">Unrestricted by default (<code>disable_safety_checker=true</code>). When a model exposes the toggle, the client defaults it to <code>true</code> so an explicit request is not silently refused; set it to <code>false</code> to re-enable the provider-side filter.</div>
         </div>
       </section>
     </div>
   </div>
 </main>
 
-<!-- NSFW LoRA Picker — FLUX.1-dev adapters for aznten_replicate (18+) -->
+<!-- Uncensored LoRA Picker -->
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 pb-6">
   <section class="panel" id="nsfwLoraPanel">
     <div class="flex items-center justify-between">
-      <h2 class="panel-title !mb-0"><i class="fas fa-fire"></i> NSFW LoRAs — FLUX + Wan I2V</h2>
-      <span class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded-full">17 • NSFW</span>
+      <h2 class="panel-title !mb-0"><i class="fas fa-fire"></i> Uncensored LoRAs — FLUX + Qwen + Wan</h2>
+      <span class="text-[10px] bg-red-700 text-white px-2 py-0.5 rounded-full">NSFW</span>
     </div>
-    <p class="text-[11px] text-zinc-500 mt-1 mb-2">Top NSFW adapters, ranked by Hub likes 2026-09-11. FLUX.1-dev entries target <code class="bg-zinc-900 px-1 rounded">aznten-flux.1-dev-replicate</code> (<code>model=dev</code> → <code>extra_lora</code>); Wan 2.1 I2V entries Fill into <code>lora_weights</code> on the matching wavespeed 480p/720p model; Wan 2.2 I2V entries have no LoRA field in-catalog so Fill copies the URL. Same rules as above: use <code>huggingface.co/owner/repo</code> docs format or the direct file URL — never bare <code>owner/repo</code>. 18+ only.</p>
+    <p class="text-[11px] text-zinc-500 mt-1 mb-2">Public uncensored adapters, kept in a separate bucket so the default picker stays clean. FLUX.1-dev entries target <code class="bg-zinc-900 px-1 rounded">fofr/flux-pixar-cars</code> (<code>extra_lora</code>); Qwen entries Fill into <code>lora_weights</code> on <code>qwen/qwen-image</code>; Wan 2.1 I2V entries Fill into <code>lora_weights</code> on the matching wavespeed 480p/720p model. Same rules as above: use <code>huggingface.co/owner/repo</code> docs format or the direct file URL — never bare <code>owner/repo</code>. Whether a given output is permitted is still up to the provider.</p>
     <div class="flex gap-1.5 mb-2">
-      <button id="btnToggleNsfwLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show NSFW LoRAs</button>
+      <button id="btnToggleNsfwLoraList" class="btn-secondary flex-1 text-xs"><i class="fas fa-chevron-down mr-1"></i> Show LoRAs</button>
     </div>
     <div id="nsfwLoraList" class="space-y-2 hidden"></div>
-    <div id="nsfwLoraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: FLUX entries Fill into <code>extra_lora</code> on <code>aznten-flux.1-dev-replicate</code> (<code>model=dev</code>); Qwen entries Fill into <code>lora_weights</code> on <code>qwen/qwen-image</code>; Wan 2.1 entries Fill into <code>lora_weights</code> on the wavespeed model; Wan 2.2 entries copy the URL (no LoRA field in-catalog). ★ marks the preferred Fill format. R/W/M chips copy the per-service string.</div>
+    <div id="nsfwLoraHint" class="text-[10px] text-zinc-600 mt-2 hidden">Tip: FLUX entries Fill into <code>extra_lora</code> on <code>fofr/flux-pixar-cars</code>; Qwen entries Fill into <code>lora_weights</code> on <code>qwen/qwen-image</code>; Wan 2.1 entries Fill into <code>lora_weights</code> on the wavespeed model. ★ marks the preferred Fill format. R/W/M chips copy the per-service string.</div>
   </section>
 </div>
 
@@ -447,10 +446,10 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
 
 <script>
 // ============================================================================
-// CATALOG — schema-driven. The aznten schema below is verbatim from your prompt.
+// CATALOG — schema-driven. Schemas mirror each model’s live upstream Input schema.
 // Other models reuse variants to demo that constraints actually change per model.
 // ============================================================================
-const AZNTEN_SCHEMA = {
+const FLUX_LORA_WRAPPER_SCHEMA = {
   "type":"object","title":"Input","required":["prompt"],
   "properties":{
     "prompt":{"type":"string","title":"Prompt","x-order":0,"description":"Prompt for generated image. If you include the `trigger_word` used in the training process you are more likely to activate the trained object, style, or concept in the resulting image."},
@@ -476,10 +475,10 @@ const AZNTEN_SCHEMA = {
   }
 };
 
-// Standalone trained model — same wrapper as AZNTEN_SCHEMA plus the second
+// Standalone trained model — same wrapper as FLUX_LORA_WRAPPER_SCHEMA plus the second
 // stacking slot (replicate_weights) from the live be6b57b0 schema (2026-09-11).
-const AZNTEN_DEV_REPLICATE_SCHEMA = (()=>{
-  const s = JSON.parse(JSON.stringify(AZNTEN_SCHEMA));
+const FLUX_LORA_WRAPPER_SCHEMA_STACKED = (()=>{
+  const s = JSON.parse(JSON.stringify(FLUX_LORA_WRAPPER_SCHEMA));
   s.properties.replicate_weights = {"type":"string","title":"Replicate Weights","x-order":21,"description":"Load LoRA weights from a Replicate model (owner/name or owner/name/version). Second stacking slot alongside extra_lora."};
   return s;
 })();
@@ -678,406 +677,266 @@ const KREA_SCHEMA = {
   }
 };
 
-// User's HuggingFace LoRAs (auto-discovered via HF API for D33pStateTech)
-const USER_LORAS = [
+// Curated HuggingFace LoRAs (public community adapters)
+const USER_LORAS = [[
   {
-    id: "D33pStateTech/aznten-flux.1-dev-replicate",
-    name: "aznten-flux.1-dev-replicate",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "aznten",
-    file: "aznten-flux.1-dev-replicate_Lora.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/aznten-flux.1-dev-replicate",
-    file_url: "https://huggingface.co/D33pStateTech/aznten-flux.1-dev-replicate/resolve/main/aznten-flux.1-dev-replicate_Lora.safetensors",
-    replicate_tar_url: "https://replicate.delivery/xezq/PJlNCqSESLKaD98VaDIzJ9qwpfVb3daEz1xe9sHqvlUsfXWuA/flux-lora.tar",
-    suggested_target: "d33pstatetech-stack/aznten_replicate (model=dev, extra_lora) or black-forest-labs/flux-dev",
-    replicate_model: "d33pstatetech-stack/aznten_replicate",
-    note: "FLUX.1-dev LoRA, trigger 'aznten'. Use as extra_lora on AZNTEN Flux LoRA model: paste huggingface.co/D33pStateTech/aznten-flux.1-dev-replicate"
+    "id": "Norod78/Flux_1_Dev_LoRA_Paper-Cutout-Style",
+    "name": "Paper Cutout Style (FLUX.1-dev)",
+    "base_model": "black-forest-labs/FLUX.1-dev",
+    "pipeline": "text-to-image",
+    "private": false,
+    "file": "Flux_1_Dev_LoRA_Paper-Cutout-Style.safetensors",
+    "repo_url": "https://huggingface.co/Norod78/Flux_1_Dev_LoRA_Paper-Cutout-Style",
+    "file_url": "https://huggingface.co/Norod78/Flux_1_Dev_LoRA_Paper-Cutout-Style/resolve/main/Flux_1_Dev_LoRA_Paper-Cutout-Style.safetensors",
+    "suggested_target": "flux-dev-lora / flux-1-dev-style-lora-inference (lora_url)",
+    "note": "Flat paper-craft aesthetic. No trigger word. 172 MB."
   },
   {
-    id: "D33pStateTech/aznten-flux-schnell-mimicpc",
-    name: "aznten-flux-schnell-mimicpc",
-    base_model: "black-forest-labs/FLUX.1-schnell",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "aznten",
-    file: "aznten-flux-schnell-mimicpc.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/aznten-flux-schnell-mimicpc",
-    file_url: "https://huggingface.co/D33pStateTech/aznten-flux-schnell-mimicpc/resolve/main/aznten-flux-schnell-mimicpc.safetensors",
-    suggested_target: "d33pstatetech-stack/aznten_replicate (model=schnell, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten_replicate",
-    note: "FLUX.1-schnell LoRA, trigger 'aznten'. Checkpoint variant aznten-flux-schnell-mimicpc-000004.safetensors also in repo. Use as extra_lora with model=schnell."
+    "id": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
+    "name": "Multiple Angles (Qwen-Image-Edit-2511)",
+    "base_model": "Qwen/Qwen-Image-Edit-2511",
+    "pipeline": "image-to-image",
+    "private": false,
+    "file": "qwen-image-edit-2511-multiple-angles-lora.safetensors",
+    "repo_url": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
+    "file_url": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/resolve/main/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+    "suggested_target": "qwen-image-edit lora slots (lora_list)",
+    "note": "Camera-angle control for edit pipelines. No trigger word. 295 MB. Apache-2.0."
   },
   {
-    id: "D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
-    name: "aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
-    base_model: "Qwen/Qwen-Image-2512",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "aznten",
-    file: "aznten-Qwen-Image-2512-Lora-WaveSpeed-AI.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI",
-    file_url: "https://huggingface.co/D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI/resolve/main/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI.safetensors",
-    suggested_target: "qwen/qwen-image (lora_weights)",
-    replicate_model: "qwen/qwen-image",
-    note: "Qwen-Image-2512 LoRA, trigger 'aznten'. Use as lora_weights on qwen/qwen-image (T2I pipeline only). Docs format also accepted."
+    "id": "Wuli-art/Qwen-Image-2512-Turbo-LoRA",
+    "name": "Turbo 4-step (Qwen-Image-2512)",
+    "base_model": "Qwen/Qwen-Image-2512",
+    "pipeline": "text-to-image",
+    "private": false,
+    "strength": "1.0",
+    "file": "Wuli-Qwen-Image-2512-Turbo-LoRA-4steps-V3.0-bf16.safetensors",
+    "repo_url": "https://huggingface.co/Wuli-art/Qwen-Image-2512-Turbo-LoRA",
+    "file_url": "https://huggingface.co/Wuli-art/Qwen-Image-2512-Turbo-LoRA/resolve/main/Wuli-Qwen-Image-2512-Turbo-LoRA-4steps-V3.0-bf16.safetensors",
+    "preferred": "file",
+    "suggested_target": "qwen-image-text-to-image-2512-lora (lora_list)",
+    "note": "Step-distilled for 4-step sampling. Pair with a matching low step count. 1.2 GB. Apache-2.0."
   },
   {
-    id: "D33pStateTech/d33pstateten",
-    name: "d33pstateten",
-    base_model: "krea/Krea-2-Raw",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "aznten",
-    file: "pytorch_lora_weights.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/d33pstateten",
-    file_url: "https://huggingface.co/D33pStateTech/d33pstateten/resolve/main/pytorch_lora_weights.safetensors",
-    suggested_target: "krea/krea-2-large (or any Krea-2 via diffusers locally — train on RAW, run on Turbo)",
-    replicate_model: "krea/krea-2-large",
-    note: "Krea-2-Raw LoRA, trigger 'aznten'. Public repo. For Replicate Krea, use style_reference_images; for local diffusers use Krea2Pipeline with this LoRA."
+    "id": "gokaygokay/Krea-2-Realism-LoRA",
+    "name": "Realism (Krea-2-Raw)",
+    "base_model": "krea/Krea-2-Raw",
+    "pipeline": "text-to-image",
+    "private": false,
+    "file": "krea2_realism_lora.safetensors",
+    "repo_url": "https://huggingface.co/gokaygokay/Krea-2-Realism-LoRA",
+    "file_url": "https://huggingface.co/gokaygokay/Krea-2-Realism-LoRA/resolve/main/krea2_realism_lora.safetensors",
+    "suggested_target": "krea raw / large lora slots (loras)",
+    "note": "Photorealism bias for the Raw checkpoint. No trigger word. 469 MB."
   },
   {
-    id: "D33pStateTech/d33pstateLora",
-    name: "d33pstateLora",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "asian ten",
-    file: "flux-asian-ten-v2-000024.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/d33pstateLora",
-    file_url: "https://huggingface.co/D33pStateTech/d33pstateLora/resolve/main/flux-asian-ten-v2-000024.safetensors",
-    suggested_target: "black-forest-labs/flux-dev or d33pstatetech-stack/aznten_replicate (extra_lora)",
-    replicate_model: "black-forest-labs/flux-dev",
-    note: "FLUX.1-dev LoRA, trigger 'asian ten'. Use as extra_lora on AZNTEN Flux LoRA model: paste huggingface.co/D33pStateTech/d33pstateLora"
+    "id": "lvladikov/Krea2-Turbo-Distill-4step-LoRA",
+    "name": "Turbo Distill 4-step (Krea-2-Turbo)",
+    "base_model": "krea/Krea-2-Turbo",
+    "pipeline": "text-to-image",
+    "private": false,
+    "strength": "1.0",
+    "file": "krea2_turbo_4step_rank_64_lora.safetensors",
+    "repo_url": "https://huggingface.co/lvladikov/Krea2-Turbo-Distill-4step-LoRA",
+    "file_url": "https://huggingface.co/lvladikov/Krea2-Turbo-Distill-4step-LoRA/resolve/main/krea2_turbo_4step_rank_64_lora.safetensors",
+    "preferred": "file",
+    "suggested_target": "krea-v2-turbo-lora (loras)",
+    "note": "Step distillation for the Turbo checkpoint. No trigger word. 438 MB."
   },
   {
-    id: "D33pStateTech/asian-ten-wan21-lora",
-    name: "asian-ten-wan21-lora",
-    base_model: "Wan-AI/Wan2.1-T2V-14B",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "asian_ten_wan21.safetensors",
-    repo_url: "https://huggingface.co/D33pStateTech/asian-ten-wan21-lora",
-    file_url: "https://huggingface.co/D33pStateTech/asian-ten-wan21-lora/resolve/main/asian_ten_wan21.safetensors",
-    suggested_target: "wavespeedai/wan-2.1-t2v-480p (lora_weights) or wan-2.2 variants",
-    replicate_model: "wavespeedai/wan-2.1-t2v-480p",
-    note: "Wan2.1 T2V LoRA — use as lora_weights on wavespeedai/wan-2.1-t2v-480p. Example: lora_weights=huggingface.co/D33pStateTech/asian-ten-wan21-lora"
+    "id": "jasbloom/Wan2.1-I2V-14B-720P-Diffusers-mmxxii-rank256-lora",
+    "name": "mmxxii rank256 (Wan2.1 I2V 720P)",
+    "base_model": "Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
+    "pipeline": "video-generation",
+    "private": false,
+    "file": "Wan2.1-I2V-14B-720P-Diffusers-mmxxii-rank256.safetensors",
+    "repo_url": "https://huggingface.co/jasbloom/Wan2.1-I2V-14B-720P-Diffusers-mmxxii-rank256-lora",
+    "file_url": "https://huggingface.co/jasbloom/Wan2.1-I2V-14B-720P-Diffusers-mmxxii-rank256-lora/resolve/main/Wan2.1-I2V-14B-720P-Diffusers-mmxxii-rank256.safetensors",
+    "suggested_target": "wan2.1-lora-i2v (lora_list)",
+    "note": "Style adapter for Wan 2.1 image-to-video at 720P. No trigger word. 2.9 GB."
   }
-];
+]
 
 // NSFW LoRA library — FLUX.1-dev, Qwen-Image-2512 and Wan adapters.
 // Sourced 2026-09-11 via HF MCP (ranked by likes) + 2026-09-16 Qwen additions.
 // Rendered grouped (image→video, by base-model family) via renderLoraListInto(..., grouped=true).
 // All Public. 18+ only.
-const NSFW_LORAS = [
+const NSFW_LORAS = [[
   {
-    id: "xey/sldr_flux_nsfw_v2-studio",
-    name: "sldr_flux_nsfw_v2-studio",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "",
-    file: "sldr_flux_nsfw_v2-studio.safetensors",
-    repo_url: "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio",
-    file_url: "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio/resolve/main/sldr_flux_nsfw_v2-studio.safetensors",
-    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
-    note: "307 likes · 1.1M downloads. Photorealistic-NSFW adapter (Civitai source) — realistic-anatomy pick. No documented trigger; use descriptive prompting. 687 MB."
+    "id": "xey/sldr_flux_nsfw_v2-studio",
+    "name": "sldr_flux_nsfw_v2-studio",
+    "base_model": "black-forest-labs/FLUX.1-dev",
+    "pipeline": "text-to-image",
+    "private": false,
+    "file": "sldr_flux_nsfw_v2-studio.safetensors",
+    "repo_url": "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio",
+    "file_url": "https://huggingface.co/xey/sldr_flux_nsfw_v2-studio/resolve/main/sldr_flux_nsfw_v2-studio.safetensors",
+    "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
+    "note": "307 likes · 1.1M downloads. Photorealistic-oriented adapter. No documented trigger. 687 MB."
   },
   {
-    id: "lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
-    name: "Flux_Lustly.ai_Uncensored_nsfw_v1",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "",
-    file: "flux_lustly-ai_v1.safetensors",
-    repo_url: "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
-    file_url: "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1/resolve/main/flux_lustly-ai_v1.safetensors",
-    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
-    note: "275 likes · 155.5K downloads. General uncensored adapter with photorealistic gallery. No trigger word; descriptive prompts. 344 MB."
+    "id": "lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
+    "name": "Flux_Lustly.ai_Uncensored_nsfw_v1",
+    "base_model": "black-forest-labs/FLUX.1-dev",
+    "pipeline": "text-to-image",
+    "private": false,
+    "file": "flux_lustly-ai_v1.safetensors",
+    "repo_url": "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
+    "file_url": "https://huggingface.co/lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1/resolve/main/flux_lustly-ai_v1.safetensors",
+    "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
+    "note": "275 likes · 155.5K downloads. General uncensored adapter. No trigger word. 344 MB."
   },
   {
-    id: "lexa862/NSFWmodel",
-    name: "NSFWmodel",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "Nude",
-    file: "NSFW_master.safetensors",
-    repo_url: "https://huggingface.co/lexa862/NSFWmodel",
-    file_url: "https://huggingface.co/lexa862/NSFWmodel/resolve/main/NSFW_master.safetensors",
-    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
-    note: "78 likes · 459.7K downloads. Trigger 'Nude'. Lightest file of the set (172 MB), permissive unlicense."
+    "id": "lexa862/NSFWmodel",
+    "name": "NSFWmodel",
+    "base_model": "black-forest-labs/FLUX.1-dev",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "Nude",
+    "file": "NSFW_master.safetensors",
+    "repo_url": "https://huggingface.co/lexa862/NSFWmodel",
+    "file_url": "https://huggingface.co/lexa862/NSFWmodel/resolve/main/NSFW_master.safetensors",
+    "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
+    "note": "78 likes · 459.7K downloads. Trigger 'Nude'. 172 MB, permissive unlicense."
   },
   {
-    id: "Keltezaa/NSFW_MASTER_FLUX",
-    name: "NSFW_MASTER_FLUX",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "NSFW",
-    file: "NSFW_master_Flux.safetensors",
-    repo_url: "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX",
-    file_url: "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX/resolve/main/NSFW_master_Flux.safetensors",
-    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
-    note: "68 likes · 30.3K downloads. Triggers: NSFW, Pussy, Vagina, Nude. MIT licensed. 172 MB."
+    "id": "Keltezaa/NSFW_MASTER_FLUX",
+    "name": "NSFW_MASTER_FLUX",
+    "base_model": "black-forest-labs/FLUX.1-dev",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "NSFW",
+    "triggers": [
+      "NSFW",
+      "Nude"
+    ],
+    "file": "NSFW_master_Flux.safetensors",
+    "repo_url": "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX",
+    "file_url": "https://huggingface.co/Keltezaa/NSFW_MASTER_FLUX/resolve/main/NSFW_master_Flux.safetensors",
+    "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
+    "note": "68 likes · 30.3K downloads. Triggers 'NSFW' or 'Nude'. 172 MB. MIT."
   },
   {
-    id: "imagepipeline/flux_uncensored_nsfw_v2",
-    name: "flux_uncensored_nsfw_v2",
-    base_model: "black-forest-labs/FLUX.1-dev",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "",
-    file: "lora.safetensors",
-    repo_url: "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2",
-    file_url: "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2/resolve/main/lora.safetensors",
-    suggested_target: "aznten-flux.1-dev-replicate (model=dev, extra_lora)",
-    replicate_model: "d33pstatetech-stack/aznten-flux.1-dev-replicate",
-    note: "34 likes · 33.1K downloads. Tagged ultra-realistic — realistic-anatomy pick. No documented trigger. 687 MB."
+    "id": "imagepipeline/flux_uncensored_nsfw_v2",
+    "name": "flux_uncensored_nsfw_v2",
+    "base_model": "black-forest-labs/FLUX.1-dev",
+    "pipeline": "text-to-image",
+    "private": false,
+    "file": "lora.safetensors",
+    "repo_url": "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2",
+    "file_url": "https://huggingface.co/imagepipeline/flux_uncensored_nsfw_v2/resolve/main/lora.safetensors",
+    "suggested_target": "flux-1-dev-style-lora-inference (lora_url)",
+    "note": "34 likes · 33.1K downloads. Tagged ultra-realistic. No documented trigger. 687 MB."
   },
   {
-    id: "starsfriday/Qwen-Image-NSFW",
-    name: "Qwen-Image-NSFW (Qwen)",
-    base_model: "Qwen-Image-2512",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "rsq",
-    triggers: ["rsq"],
-    strength: "0.6–1.0",
-    file: "qwen_image_nsfw.safetensors",
-    repo_url: "https://huggingface.co/starsfriday/Qwen-Image-NSFW",
-    file_url: "https://huggingface.co/starsfriday/Qwen-Image-NSFW/resolve/main/qwen_image_nsfw.safetensors",
-    formats: {
-      replicate: "huggingface.co/starsfriday/Qwen-Image-NSFW",
-      wavespeed: "starsfriday/Qwen-Image-NSFW",
-      muapi: "https://huggingface.co/starsfriday/Qwen-Image-NSFW/resolve/main/qwen_image_nsfw.safetensors"
+    "id": "starsfriday/Qwen-Image-NSFW",
+    "name": "Qwen-Image-NSFW (Qwen)",
+    "base_model": "Qwen-Image-2512",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "rsq",
+    "triggers": [
+      "rsq"
+    ],
+    "strength": "0.6–1.0",
+    "file": "qwen_image_nsfw.safetensors",
+    "repo_url": "https://huggingface.co/starsfriday/Qwen-Image-NSFW",
+    "file_url": "https://huggingface.co/starsfriday/Qwen-Image-NSFW/resolve/main/qwen_image_nsfw.safetensors",
+    "formats": {
+      "replicate": "huggingface.co/starsfriday/Qwen-Image-NSFW",
+      "wavespeed": "starsfriday/Qwen-Image-NSFW",
+      "muapi": "https://huggingface.co/starsfriday/Qwen-Image-NSFW/resolve/main/qwen_image_nsfw.safetensors"
     },
-    preferred: "docs",
-    suggested_target: "qwen/qwen-image (lora_weights)",
-    replicate_model: "qwen/qwen-image",
-    note: "General NSFW adapter for Qwen-Image-2512. Trigger 'rsq'. Pair with strength 0.6–1.0."
+    "preferred": "file",
+    "suggested_target": "qwen-image-text-to-image-2512-lora (lora_list)",
+    "note": "General uncensored adapter for Qwen-Image-2512. Trigger 'rsq'. Pair with strength 0.6–1.0."
   },
   {
-    id: "Sentinel7/qwen-image-qwen4play",
-    name: "Qwen4Play 2512 v1/v2 (Qwen)",
-    base_model: "Qwen-Image-2512",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "bl0wj0b",
-    triggers: ["bl0wj0b", "c0wg1rl", "m15510n4ry", "d0gg13"],
-    strength: "0.8–1.0",
-    file: "Qwen4Play-2512.1_e10.safetensors",
-    repo_url: "https://huggingface.co/Sentinel7/qwen-image",
-    file_url: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
-    civitai: "civitai:2004155@2611939",
-    formats: {
-      replicate: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
-      wavespeed: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
-      muapi: "civitai:2004155@2611939"
+    "id": "Sentinel7/qwen-image-qwen4play",
+    "name": "Qwen4Play 2512 v1/v2 (Qwen)",
+    "base_model": "Qwen-Image-2512",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "bl0wj0b",
+    "triggers": [
+      "bl0wj0b",
+      "c0wg1rl"
+    ],
+    "strength": "0.8–1.0",
+    "file": "Qwen4Play-2512.1_e10.safetensors",
+    "repo_url": "https://huggingface.co/Sentinel7/qwen-image",
+    "file_url": "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
+    "civitai": "civitai:2004155@2611939",
+    "formats": {
+      "replicate": "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
+      "wavespeed": "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2004155/2611939/Qwen4Play-2512.1_e10.safetensors",
+      "muapi": "civitai:2004155@2611939"
     },
-    preferred: "file",
-    suggested_target: "qwen/qwen-image (lora_weights)",
-    replicate_model: "qwen/qwen-image",
-    note: "Act-specific LoRA (Civitai mirror). File lives in a subfolder so the HF short form will NOT work — use the full URL on WaveSpeed/Replicate. Triggers vary by act, or none required."
+    "preferred": "file",
+    "suggested_target": "qwen-image-text-to-image-2512-lora (lora_list)",
+    "note": "Act-specific LoRA (Civitai mirror). Subfolder file — full URL required on WaveSpeed/Replicate; civitai: shorthand preferred on MuAPI. Triggers vary by act, or none required."
   },
   {
-    id: "Sentinel7/qwen-image-naturalbeauty",
-    name: "NaturalBeauty Nudity (Qwen)",
-    base_model: "Qwen-Image-2512",
-    pipeline: "text-to-image",
-    private: false,
-    instance_prompt: "naked",
-    triggers: ["naked", "topless", "breasts visible", "nipples visible", "pussy visible"],
-    strength: "0.6–1.0",
-    file: "NaturalBeautyQwenImage2512Nudity.safetensors",
-    repo_url: "https://huggingface.co/Sentinel7/qwen-image",
-    file_url: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
-    formats: {
-      replicate: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
-      wavespeed: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
-      muapi: "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors"
+    "id": "Sentinel7/qwen-image-naturalbeauty",
+    "name": "NaturalBeauty Nudity (Qwen)",
+    "base_model": "Qwen-Image-2512",
+    "pipeline": "text-to-image",
+    "private": false,
+    "instance_prompt": "naked",
+    "triggers": [
+      "naked",
+      "topless"
+    ],
+    "strength": "0.6–1.0",
+    "file": "NaturalBeautyQwenImage2512Nudity.safetensors",
+    "repo_url": "https://huggingface.co/Sentinel7/qwen-image",
+    "file_url": "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
+    "formats": {
+      "replicate": "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
+      "wavespeed": "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors",
+      "muapi": "https://huggingface.co/Sentinel7/qwen-image/resolve/main/2322700/2612959/NaturalBeautyQwenImage2512Nudity.safetensors"
     },
-    preferred: "file",
-    suggested_target: "qwen/qwen-image (lora_weights)",
-    replicate_model: "qwen/qwen-image",
-    note: "Photorealistic nudity/topless LoRA for Qwen-Image-2512. Descriptive triggers (see list). Subfolder file — full URL required everywhere."
+    "preferred": "file",
+    "suggested_target": "qwen-image-text-to-image-2512-lora (lora_list)",
+    "note": "Photorealistic nudity/topless LoRA for Qwen-Image-2512. Descriptive triggers (see list). Subfolder file — full URL required everywhere."
   },
   {
-    id: "lopi999/Wan2.2-I2V_General-NSFW-LoRA",
-    name: "Wan2.2-I2V General NSFW",
-    base_model: "Wan-AI/Wan2.2-I2V-A14B",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "nsfwsks",
-    file: "NSFW-22-H-e8.safetensors",
-    repo_url: "https://huggingface.co/lopi999/Wan2.2-I2V_General-NSFW-LoRA",
-    file_url: "https://huggingface.co/lopi999/Wan2.2-I2V_General-NSFW-LoRA/resolve/main/NSFW-22-H-e8.safetensors",
-    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "111 likes · 77.9K downloads. Foundation general-NSFW adapter for Wan 2.2 I2V, trigger 'nsfwsks'. High-noise file (613 MB); low-noise NSFW-22-L-e8 also in repo. Stack act LoRAs behind it."
+    "id": "Market5/Wan_2.2-2.1_POV_Missionary-high",
+    "name": "POV Missionary-high (Wan2.1)",
+    "base_model": "Wan-AI/Wan2.1-I2V-14B-720P",
+    "pipeline": "video-generation",
+    "private": false,
+    "file": "wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
+    "repo_url": "https://huggingface.co/Market5/Wan_2.2-2.1_POV_Missionary-high",
+    "file_url": "https://huggingface.co/Market5/Wan_2.2-2.1_POV_Missionary-high/resolve/main/wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
+    "suggested_target": "wan2.1-lora-i2v (lora_list)",
+    "note": "80 downloads. Stamped Wan 2.1 I2V 720P. Fills lora_list as {path, scale}. 307 MB."
   },
   {
-    id: "Aisha-AI-Official/wan2.2-rough-sex-anal",
-    name: "rough-sex-anal (Wan2.2)",
-    base_model: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "rough_anal_high_noise.safetensors",
-    repo_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-anal",
-    file_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-anal/resolve/main/rough_anal_high_noise.safetensors",
-    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "18 likes. Dual-stamped Wan 2.2 T2V + I2V. No trigger — descriptive prompt scripts with preview clips in card. 154 MB."
+    "id": "Market5/Double_Single_Handy_Blowjob",
+    "name": "Single Handy (Wan2.1)",
+    "base_model": "Wan-AI/Wan2.1-I2V-14B-480P",
+    "pipeline": "video-generation",
+    "private": false,
+    "file": "wan_dr34mj0b_t2v.safetensors",
+    "repo_url": "https://huggingface.co/Market5/Double_Single_Handy_Blowjob",
+    "file_url": "https://huggingface.co/Market5/Double_Single_Handy_Blowjob/resolve/main/wan_dr34mj0b_t2v.safetensors",
+    "suggested_target": "wan2.1-lora-i2v (lora_list)",
+    "note": "36 downloads. Stamped Wan 2.1 I2V 480P. Fills lora_list as {path, scale}. 154 MB."
   },
   {
-    id: "Aisha-AI-Official/wan2.2-rough-sex-doggy-style",
-    name: "rough-sex-doggy (Wan2.2)",
-    base_model: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "rough_sex_doggy_000000170_high_noise.safetensors",
-    repo_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-doggy-style",
-    file_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-doggy-style/resolve/main/rough_sex_doggy_000000170_high_noise.safetensors",
-    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "12 likes. Dual-stamped Wan 2.2 T2V + I2V. No trigger — descriptive prompt scripts in card. 154 MB."
-  },
-  {
-    id: "Aisha-AI-Official/wan2.2-rough-sex-cowgirl",
-    name: "rough-sex-cowgirl (Wan2.2)",
-    base_model: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "bbc_sex_cowgirl_high_noise.safetensors",
-    repo_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-cowgirl",
-    file_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-cowgirl/resolve/main/bbc_sex_cowgirl_high_noise.safetensors",
-    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "5 likes. Stamped Wan 2.2 I2V. No trigger — descriptive prompt scripts in card. 154 MB."
-  },
-  {
-    id: "Aisha-AI-Official/wan2.2-rough-sex-sidefuck",
-    name: "rough-sex-sidefuck (Wan2.2)",
-    base_model: "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "bbc_sex_sidefuck_high_noise.safetensors",
-    repo_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-sidefuck",
-    file_url: "https://huggingface.co/Aisha-AI-Official/wan2.2-rough-sex-sidefuck/resolve/main/bbc_sex_sidefuck_high_noise.safetensors",
-    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "5 likes. Stamped Wan 2.2 I2V, side/spooning position. v2 file also in repo. No trigger. 154 MB."
-  },
-  {
-    id: "profpeng/wannsfw1",
-    name: "wannsfw1 (lopi999 mirror)",
-    base_model: "Wan-AI/Wan2.2-I2V-A14B",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "nsfwsks",
-    file: "NSFW-22-H-e8.safetensors",
-    repo_url: "https://huggingface.co/profpeng/wannsfw1",
-    file_url: "https://huggingface.co/profpeng/wannsfw1/resolve/main/NSFW-22-H-e8.safetensors",
-    suggested_target: "wan-2.2-i2v-fast (no LoRA field — Fill copies URL)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "2 likes. Byte-identical mirror of lopi999's files, same 'nsfwsks' trigger — fallback URL only."
-  },
-  {
-    id: "Market5/Wan_2.2-2.1_POV_Missionary-high",
-    name: "POV Missionary-high (Wan2.1)",
-    base_model: "Wan-AI/Wan2.1-I2V-14B-720P",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
-    repo_url: "https://huggingface.co/Market5/Wan_2.2-2.1_POV_Missionary-high",
-    file_url: "https://huggingface.co/Market5/Wan_2.2-2.1_POV_Missionary-high/resolve/main/wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
-    suggested_target: "wavespeedai/wan-2.1-i2v-720p (lora_weights)",
-    replicate_model: "wavespeedai/wan-2.1-i2v-720p",
-    note: "80 downloads. Stamped Wan 2.1 I2V 720P, missionary POV. No documented trigger. 307 MB."
-  },
-  {
-    id: "Market5/Double_Single_Handy_Blowjob",
-    name: "Handy Blowjob (Wan2.1)",
-    base_model: "Wan-AI/Wan2.1-I2V-14B-480P",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "wan_dr34mj0b_t2v.safetensors",
-    repo_url: "https://huggingface.co/Market5/Double_Single_Handy_Blowjob",
-    file_url: "https://huggingface.co/Market5/Double_Single_Handy_Blowjob/resolve/main/wan_dr34mj0b_t2v.safetensors",
-    suggested_target: "wavespeedai/wan-2.1-i2v-480p (lora_weights)",
-    replicate_model: "wavespeedai/wan-2.1-i2v-480p",
-    note: "36 downloads. Stamped Wan 2.1 I2V 480P. No documented trigger. 154 MB."
-  },
-  {
-    id: "Market5/Assertive_Cowgirl",
-    name: "Assertive Cowgirl (Wan2.1)",
-    base_model: "Wan-AI/Wan2.1-I2V-14B-720P",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
-    repo_url: "https://huggingface.co/Market5/Assertive_Cowgirl",
-    file_url: "https://huggingface.co/Market5/Assertive_Cowgirl/resolve/main/Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
-    suggested_target: "wavespeedai/wan-2.1-i2v-720p (lora_weights)",
-    replicate_model: "wavespeedai/wan-2.1-i2v-720p",
-    note: "20 downloads. Stamped Wan 2.1 I2V 720P (LOW variant also exists). No documented trigger. 307 MB."
-  },
-  {
-    id: "NSFWcode-com/NSFWcode_com_WAN22_ORAL_INSERTION_V01",
-    name: "WAN22 Oral Insertion",
-    base_model: "unstamped (name claims Wan 2.2)",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "NSFWcode_com_WAN22_ORAL_INSERTION_V02_HIGH.safetensors",
-    repo_url: "https://huggingface.co/NSFWcode-com/NSFWcode_com_WAN22_ORAL_INSERTION_V01",
-    file_url: "https://huggingface.co/NSFWcode-com/NSFWcode_com_WAN22_ORAL_INSERTION_V01/resolve/main/NSFWcode_com_WAN22_ORAL_INSERTION_V02_HIGH.safetensors",
-    suggested_target: "wan-2.2-i2v-fast (confirm base first — unstamped)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "1 like · 10.8K downloads. Oral. No base_model tag — verify Wan 2.2 I2V before use. V02 HIGH file (307 MB); V01 LOW also in repo. Docs off-site."
-  },
-  {
-    id: "redflagcitymayor/wan2.2-i2v-missionary-high-14b-lora",
-    name: "Missionary-high-14b (Wan2.2?)",
-    base_model: "unstamped (name claims Wan 2.2 I2V)",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "A naked man and a naked woman having sex. He thrusts his penis in and out of her vagina.",
-    file: "Wan2.2 - I2V - Missionary Sex - HIGH 14B.safetensors",
-    repo_url: "https://huggingface.co/redflagcitymayor/wan2.2-i2v-missionary-high-14b-lora",
-    file_url: "https://huggingface.co/redflagcitymayor/wan2.2-i2v-missionary-high-14b-lora/resolve/main/Wan2.2%20-%20I2V%20-%20Missionary%20Sex%20-%20HIGH%2014B.safetensors",
-    suggested_target: "wan-2.2-i2v-fast (confirm base first — unstamped)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "2.0K downloads, MIT. Trigger is a full sentence (see above). No base_model tag — verify before use. 613 MB; filename has spaces (URL-encoded)."
-  },
-  {
-    id: "otherwhere1/wan_i2v_pov_blowjob_v1.2",
-    name: "POV Blowjob v1.2 (Wan I2V?)",
-    base_model: "unstamped (name claims Wan I2V)",
-    pipeline: "video-generation",
-    private: false,
-    instance_prompt: "",
-    file: "wan_i2v_pov_blowjob_v1.2.safetensors",
-    repo_url: "https://huggingface.co/otherwhere1/wan_i2v_pov_blowjob_v1.2",
-    file_url: "https://huggingface.co/otherwhere1/wan_i2v_pov_blowjob_v1.2/resolve/main/wan_i2v_pov_blowjob_v1.2.safetensors",
-    suggested_target: "wan-2.2-i2v-fast or wan-2.1 model (confirm 2.1 vs 2.2 first)",
-    replicate_model: "wan-video/wan-2.2-i2v-fast",
-    note: "848 downloads. POV oral. No base_model tag and name is ambiguous on 2.1 vs 2.2 — confirm before use. No documented trigger. 359 MB."
+    "id": "Market5/Assertive_Cowgirl",
+    "name": "Assertive Cowgirl (Wan2.1)",
+    "base_model": "Wan-AI/Wan2.1-I2V-14B-720P",
+    "pipeline": "video-generation",
+    "private": false,
+    "file": "Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
+    "repo_url": "https://huggingface.co/Market5/Assertive_Cowgirl",
+    "file_url": "https://huggingface.co/Market5/Assertive_Cowgirl/resolve/main/Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
+    "suggested_target": "wan2.1-lora-i2v (lora_list)",
+    "note": "20 downloads. Stamped Wan 2.1 I2V 720P. Fills lora_list as {path, scale}. 307 MB."
   }
-];
+]
 
 const QWEN_IMAGE_SCHEMA = {
   type:"object", title:"Input", required:["prompt"],
@@ -1124,24 +983,23 @@ const H3_SCHEMA = {
   }
 };
 
-const CATALOG = [
-  { id:"d33pstatetech-stack/aznten_replicate", name:"AZNTEN Flux LoRA (dev/schnell)", group:"image", category:"Image · Flux LoRA", version:"d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453", description:"Flux-based LoRA trained with trigger word aznten. dev @28 steps quality, schnell @4 steps speed. Conditional width/height on aspect_ratio=custom, max 1440.", schema: AZNTEN_SCHEMA },
-  { id:"d33pstatetech-stack/aznten-flux.1-dev-replicate", name:"AZNTEN FLUX.1-dev (standalone)", group:"image", category:"Image · Flux LoRA", version:"d33pstatetech-stack/aznten-flux.1-dev-replicate:be6b57b05d69042bac4db99c9eebb22afcaf9e7aa3839cdd30e5cebd8c34d604", description:"Trained FLUX.1-dev LoRA as standalone model (2026-09-07) — baked weights, trigger word, lora_scale -1..3, extra_lora + replicate_weights stacking slots. Unrestricted by default.", schema: AZNTEN_DEV_REPLICATE_SCHEMA },
-  { id:"black-forest-labs/flux-schnell", name:"FLUX.1 [schnell]", group:"image", category:"Image · FLUX", version:"black-forest-labs/flux-schnell:c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e", description:"Speed-optimized FLUX — 4 steps is enough. Latest 2025-06-25.", schema: FLUX_SCHNELL_SCHEMA },
-  { id:"black-forest-labs/flux-dev", name:"FLUX.1 [dev]", group:"image", category:"Image · FLUX", version:"black-forest-labs/flux-dev:6e4a938f85952bdabcc15aa329178c4d681c52bf25a0342403287dc26944661d", description:"Quality FLUX — ~28 steps. Latest.", schema: (()=>{ const s=JSON.parse(JSON.stringify(FLUX_SCHNELL_SCHEMA)); s.properties.num_inference_steps.default=28; s.properties.num_inference_steps.maximum=50; s.properties.go_fast.default=false; s.properties.megapixels.enum=["1","0.25"]; return s;})() },
-  { id:"krea/krea-2-large", name:"Krea 2 Large", group:"image", category:"Image · Krea", version:"krea/krea-2-large:eef77a68a7699844a7c324d8c2a1a158b84a77b7c1875ecb3eb0c1fbc16570a9", description:"Krea flagship — photorealism, added for D33pStateTech/d33pstateten LoRA (aznten, base Krea-2-Raw). Use style_reference_images for style; LoRA for local diffusers via HF URL.", schema: KREA_SCHEMA },
-  { id:"stability-ai/sdxl", name:"SDXL", group:"image", category:"Image · Stable Diffusion", version:"stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc", description:"1024px SDXL — width/height up to 2048, latest 7762fd07.", schema: SDXL_SCHEMA },
-  { id:"qwen/qwen-image", name:"Qwen-Image (LoRA-capable)", group:"image", category:"Image · Qwen", version:"qwen/qwen-image:0bba9e70f78437359725e0989ead45ca8b09e6c12a070dfe9a09e6856b43a44d", description:"Qwen-Image with lora_weights / extra_lora_weights slots — Replicate-side target for Qwen LoRAs (e.g. aznten-Qwen-Image-2512). T2I pipeline only for LoRA.", schema: QWEN_IMAGE_SCHEMA },
-  { id:"alibaba/wan-3", name:"WAN 3.0", group:"video", category:"Video · WAN 3.0", version:"alibaba/wan-3:bb8bf2a1273cabad48e6c566ad7112e06bbc6ccf39684ffd81b618822735f056", description:"Alibaba Wan 3.0 — text-to-video + image-to-video, cinematic motion, 480p/720p/1080p, 2-30s, adaptive or 16:9/9:16/1:1/4:3/3:4. 50% off until Aug 30. From replicate_docs/wan3-llms.txt + live API.", schema: WAN3_SCHEMA },
-  { id:"alibaba/wan-3-prime", name:"WAN 3.0 Prime", group:"video", category:"Video · WAN 3.0", version:"alibaba/wan-3-prime:736267d3620794f7e744f46c814304617a16ff3d19e43ee70daa7bff87c7d150", description:"Wan 3.0 Prime — speed-optimized variant of Wan 3.0, same params (prompt, image, resolution, aspect_ratio, duration 2-30, prompt expansion). Up to 1080p/30s.", schema: WAN3_PRIME_SCHEMA },
-  { id:"wan-video/wan-2.2-t2v-fast", name:"WAN 2.2 T2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-t2v-fast:c483b1f7b892065bc58ebadb6381abf557f6b1f517d2ff0febb3fb635cf49b4d", description:"Wan 2.2 T2V Fast — text-to-video, 480p 16:9/9:16, 81-121 frames, 5-30fps. For image-to-video use WAN 2.2 I2V Fast or WAN 3.0.", schema: WAN22_T2V_SCHEMA },
-  { id:"wan-video/wan-2.2-i2v-fast", name:"WAN 2.2 I2V Fast", group:"video", category:"Video · WAN", version:"wan-video/wan-2.2-i2v-fast:4eaf2b01d3bf70d8a2e00b219efeb7cb415855ad18b7dacdc4cae664a73a6eea", description:"Wan 2.2 I2V Fast — image-to-video, supports image + last_image, 480p, 81 frames. Fixed: was wan-2.1-t2v-14b (Model not found).", schema: WAN22_I2V_SCHEMA },
-  { id:"wavespeedai/wan-2.1-i2v-480p", name:"WAN 2.1 I2V 480p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-480p:e2870aa4965fd9ddfd87c16a3c8ab952c18e745e63f3f3b123c2dc8b538ad2b5", description:"WaveSpeed Wan 2.1 I2V 480p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 480P adapters. Note: WaveSpeed may still block explicit outputs provider-side even with NSFW enabled (observed 2026-09-11).", schema: WAVESPEED_WAN21_I2V_480P_SCHEMA },
-  { id:"wavespeedai/wan-2.1-i2v-720p", name:"WAN 2.1 I2V 720p (WaveSpeed)", group:"video", category:"Video · WAN", version:"wavespeedai/wan-2.1-i2v-720p:1f0a7fa066689a087b597a314f60ef74d1a720fa1fb9a7083487c4b01db3395f", description:"WaveSpeed Wan 2.1 I2V 720p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 720P adapters. Note: WaveSpeed may still block explicit outputs provider-side even with NSFW enabled (observed 2026-09-11).", schema: WAVESPEED_WAN21_I2V_720P_SCHEMA },
-  { id:"wan-video/wan2.1-with-lora", name:"Wan 2.1 with LoRA", group:"video", category:"Video · WAN", version:"wan-video/wan2.1-with-lora:c48fa8ec65b13143cb552ab98ea17984eab9d70e9fe99479117de40a2a7f9ed0", description:"Wan 2.1 14b/1.3b T2V+I2V with lora_url + model/CLIP strength sliders. Use 14b for 14B LoRAs.", schema: WAN21_WITH_LORA_SCHEMA },
-  { id:"wavespeedai/wan-2.1-t2v-480p", name:"WAVESPEED Wan 2.1 T2V 480p", group:"video", category:"Video · Wavespeed", version:"wavespeedai/wan-2.1-t2v-480p:7677a619127ea34d1ed873fb5b77448e4b9889fbd83809b44a2c459ace99192a", description:"WavespeedAI Wan 2.1 T2V 480p — I2V (image required) + T2V, 16:9/9:16, fast_mode Off/Balanced/Fast, sample_steps 1-40, lora_scale 0-4, disable_safety_checker for unrestricted.", schema: WAVESPEED_WAN21_T2V_SCHEMA },
-  { id:"minimax/h3", name:"MiniMax H3 (I2V + reference)", group:"video", category:"Video · Hailuo", version:"minimax/h3", official:true, description:"MiniMax H3 official — T2V + first/last-frame I2V + reference (9 imgs / 3 vids / 3 audio), 4-15s, 768P/2K ($0.08/$0.13 per s). Official model: runs latest, no version pin. No LoRA slots; moderation is MiniMax-side.", schema: H3_SCHEMA },
-];
+const CATALOG = [[
+  {"id":"fofr/flux-pixar-cars","name":"FLUX Pixar Cars (LoRA wrapper)","group":"image","category":"Image · Flux LoRA","version":"fofr/flux-pixar-cars:43768954c7bdc93d3bd0f01052652f8ce4e32781a37a7e832c048f7dc70b26bd","description":"Public FLUX LoRA wrapper — good reference for the richer input shape: conditional width/height behind aspect_ratio=custom (max 1440), go_fast / megapixels quantization, and two LoRA slots (extra_lora plus replicate_weights).","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"mask":{"type":"string","title":"Mask","format":"uri","x-order":2,"description":"Image mask for image inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},"seed":{"type":"integer","title":"Seed","x-order":11,"description":"Random seed. Set for reproducible generation"},"image":{"type":"string","title":"Image","format":"uri","x-order":1,"description":"Input image for image to image or inpainting mode. If provided, aspect_ratio, width, and height inputs are ignored."},"model":{"allOf":[{"$ref":"#/components/schemas/model"}],"default":"dev","x-order":7,"description":"Which model to run inference with. The dev model performs best with around 28 inference steps but the schnell model only needs 4 steps."},"width":{"type":"integer","title":"Width","maximum":1440,"minimum":256,"x-order":5,"description":"Width of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},"height":{"type":"integer","title":"Height","maximum":1440,"minimum":256,"x-order":4,"description":"Height of generated image. Only works if `aspect_ratio` is set to custom. Will be rounded to nearest multiple of 16. Incompatible with fast generation"},"prompt":{"type":"string","title":"Prompt","x-order":0,"description":"Prompt for generated image. If you include the `trigger_word` used in the training process you are more likely to activate the trained object, style, or concept in the resulting image."},"go_fast":{"type":"boolean","title":"Go Fast","default":false,"x-order":15,"description":"Run faster predictions with model optimized for speed (currently fp8 quantized); disable to run in original bf16"},"extra_lora":{"type":"string","title":"Extra Lora","x-order":19,"description":"Load LoRA weights. Supports Replicate models in the format <owner>/<username> or <owner>/<username>/<version>, HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet. For example, 'fofr/flux-pixar-cars'"},"lora_scale":{"type":"number","title":"Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":18,"description":"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."},"megapixels":{"allOf":[{"$ref":"#/components/schemas/megapixels"}],"default":"1","x-order":16,"description":"Approximate number of megapixels for generated image"},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"maximum":4,"minimum":1,"x-order":8,"description":"Number of outputs to generate"},"aspect_ratio":{"allOf":[{"$ref":"#/components/schemas/aspect_ratio"}],"default":"1:1","x-order":3,"description":"Aspect ratio for the generated image. If custom is selected, uses height and width below & will run in bf16 mode"},"output_format":{"allOf":[{"$ref":"#/components/schemas/output_format"}],"default":"webp","x-order":12,"description":"Format of the output images"},"guidance_scale":{"type":"number","title":"Guidance Scale","default":3,"maximum":10,"minimum":0,"x-order":10,"description":"Guidance scale for the diffusion process. Lower values can give more realistic images. Good values to try are 2, 2.5, 3 and 3.5"},"output_quality":{"type":"integer","title":"Output Quality","default":80,"maximum":100,"minimum":0,"x-order":13,"description":"Quality when saving the output images, from 0 to 100. 100 is best quality, 0 is lowest quality. Not relevant for .png outputs"},"prompt_strength":{"type":"number","title":"Prompt Strength","default":0.8,"maximum":1,"minimum":0,"x-order":6,"description":"Prompt strength when using img2img. 1.0 corresponds to full destruction of information in image"},"extra_lora_scale":{"type":"number","title":"Extra Lora Scale","default":1,"maximum":3,"minimum":-1,"x-order":20,"description":"Determines how strongly the extra LoRA should be applied. Sane results between 0 and 1 for base inference. For go_fast we apply a 1.5x multiplier to this value; we've generally seen good performance when scaling the base value by that amount. You may still need to experiment to find the best value for your particular lora."},"replicate_weights":{"type":"string","title":"Replicate Weights","x-order":17,"description":"Load LoRA weights. Supports Replicate models in the format <owner>/<username> or <owner>/<username>/<version>, HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet. For example, 'fofr/flux-pixar-cars'"},"num_inference_steps":{"type":"integer","title":"Num Inference Steps","default":28,"maximum":50,"minimum":1,"x-order":9,"description":"Number of denoising steps. More steps can give more detailed images, but take longer."},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":false,"x-order":14,"description":"Disable safety checker for generated images."}}}},
+  {"id":"black-forest-labs/flux-schnell","name":"FLUX.1 [schnell]","group":"image","category":"Image · FLUX","version":"black-forest-labs/flux-schnell:c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e","description":"Speed-optimized FLUX — 4 steps is enough. Latest 2025-06-25.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","description":"Text prompt","x_order":0},"aspect_ratio":{"enum":["1:1","16:9","21:9","3:2","2:3","4:5","5:4","3:4","4:3","9:16"],"type":"string","title":"aspect_ratio","description":"Aspect ratio","default":"1:1","x_order":1},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"minimum":1,"maximum":4,"x_order":2},"num_inference_steps":{"type":"integer","title":"Steps","default":4,"minimum":1,"maximum":10,"description":"schnell only needs 4 steps","x_order":3},"guidance_scale":{"type":"number","title":"Guidance","default":3,"minimum":0,"maximum":10,"x_order":4},"seed":{"type":"integer","title":"Seed","x_order":5},"output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","default":"webp","x_order":6},"output_quality":{"type":"integer","title":"Output Quality","default":80,"minimum":0,"maximum":100,"x_order":7},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"description":"Bypass NSFW filter","x_order":8},"go_fast":{"type":"boolean","title":"Go Fast","default":true,"description":"Always fast for schnell","x_order":9},"megapixels":{"enum":["1"],"type":"string","title":"megapixels","default":"1","x_order":10}}}},
+  {"id":"black-forest-labs/flux-dev","name":"FLUX.1 [dev]","group":"image","category":"Image · FLUX","version":"black-forest-labs/flux-dev:6e4a938f85952bdabcc15aa329178c4d681c52bf25a0342403287dc26944661d","description":"Quality FLUX — ~28 steps. Latest.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","description":"Text prompt","x_order":0},"aspect_ratio":{"enum":["1:1","16:9","21:9","3:2","2:3","4:5","5:4","3:4","4:3","9:16"],"type":"string","title":"aspect_ratio","description":"Aspect ratio","default":"1:1","x_order":1},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"minimum":1,"maximum":4,"x_order":2},"num_inference_steps":{"type":"integer","title":"Steps","default":28,"minimum":1,"maximum":50,"description":"schnell only needs 4 steps","x_order":3},"guidance_scale":{"type":"number","title":"Guidance","default":3,"minimum":0,"maximum":10,"x_order":4},"seed":{"type":"integer","title":"Seed","x_order":5},"output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","default":"webp","x_order":6},"output_quality":{"type":"integer","title":"Output Quality","default":80,"minimum":0,"maximum":100,"x_order":7},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"description":"Bypass NSFW filter","x_order":8},"go_fast":{"type":"boolean","title":"Go Fast","default":false,"description":"Always fast for schnell","x_order":9},"megapixels":{"enum":["1","0.25"],"type":"string","title":"megapixels","default":"1","x_order":10}}}},
+  {"id":"krea/krea-2-large","name":"Krea 2 Large","group":"image","category":"Image · Krea","version":"krea/krea-2-large:eef77a68a7699844a7c324d8c2a1a158b84a77b7c1875ecb3eb0c1fbc16570a9","description":"Krea flagship — photorealism. Use style_reference_images for style transfer; load adapters for the Krea family from a Hugging Face URL.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Text prompt describing the image."},"aspect_ratio":{"enum":["1:1","16:9","3:2","2:3","4:5","3:4","9:16"],"type":"string","title":"aspect_ratio","default":"1:1","x_order":1,"description":"Aspect ratio of the generated image."},"creativity":{"enum":["raw","low","medium","high"],"type":"string","title":"creativity","default":"medium","x_order":2,"description":"How far the model expands on your prompt."},"style_reference_images":{"type":"array","items":{"type":"string","format":"uri"},"title":"Style Reference Images","default":[],"x_order":3,"description":"Up to 10 reference images whose style should be transferred."},"style_reference_strength":{"type":"number","title":"Style Reference Strength","default":0.5,"minimum":0,"maximum":1,"x_order":4,"description":"How strongly to apply style."},"moodboard_id":{"type":"string","title":"Moodboard Id","default":null,"x_order":5,"description":"Optional Krea moodboard UUID."},"moodboard_strength":{"type":"number","title":"Moodboard Strength","default":0.35,"minimum":0,"maximum":1,"x_order":6,"description":"How strongly moodboard shapes output."},"seed":{"type":"integer","title":"Seed","x_order":7,"description":"Random seed. Leave blank for random."}}}},
+  {"id":"stability-ai/sdxl","name":"SDXL","group":"image","category":"Image · Stable Diffusion","version":"stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc","description":"1024px SDXL — width/height up to 2048, latest 7762fd07.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0},"negative_prompt":{"type":"string","title":"Negative Prompt","description":"Things to avoid","x_order":1},"width":{"type":"integer","title":"Width","minimum":256,"maximum":2048,"default":1024,"x_order":2,"description":"SDXL supports up to 2048"},"height":{"type":"integer","title":"Height","minimum":256,"maximum":2048,"default":1024,"x_order":3},"num_outputs":{"type":"integer","title":"Num Outputs","default":1,"minimum":1,"maximum":4,"x_order":4},"num_inference_steps":{"type":"integer","title":"Steps","default":25,"minimum":1,"maximum":100,"x_order":5},"guidance_scale":{"type":"number","title":"Guidance Scale","default":7.5,"minimum":0,"maximum":20,"x_order":6},"seed":{"type":"integer","title":"Seed","x_order":7},"scheduler":{"enum":["DDIM","DPMSolverMultistep","HeunDiscrete","K_EULER","K_EULER_ANCESTRAL","PNDM"],"type":"string","title":"Scheduler","default":"K_EULER","x_order":8},"refine":{"enum":["no_refiner","expert_ensemble_refiner","base_image_refiner"],"type":"string","title":"Refine","default":"no_refiner","x_order":9},"output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","default":"webp","x_order":10}}}},
+  {"id":"qwen/qwen-image","name":"Qwen-Image (LoRA-capable)","group":"image","category":"Image · Qwen","version":"qwen/qwen-image:0bba9e70f78437359725e0989ead45ca8b09e6c12a070dfe9a09e6856b43a44d","description":"Qwen-Image with lora_weights / extra_lora_weights slots — Replicate-side target for Qwen-Image LoRAs. T2I pipeline only for LoRA.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Prompt for generated image"},"enhance_prompt":{"type":"boolean","title":"Enhance Prompt","default":false,"x_order":1,"description":"Enhance the prompt with positive magic."},"lora_weights":{"type":"string","format":"uri","title":"Lora Weights","x_order":2,"nullable":true,"description":"Load LoRA weights. Supports arbitrary .safetensors URLs, tar files, and zip files (e.g. https://huggingface.co/.../resolve/main/*.safetensors). T2I pipeline only."},"replicate_weights":{"type":"string","format":"uri","title":"Replicate Weights","x_order":3,"nullable":true,"description":"Load LoRA weights from Replicate training. T2I pipeline only."},"lora_scale":{"type":"number","title":"Lora Scale","default":1,"x_order":4,"description":"Determines how strongly the main LoRA should be applied."},"extra_lora_weights":{"type":"array","items":{"type":"string","format":"uri"},"title":"Extra Lora Weights","x_order":5,"nullable":true,"description":"Additional LoRA weights as an array of URLs, one per line."},"extra_lora_scale":{"type":"array","items":{"type":"number"},"title":"Extra Lora Scale","x_order":6,"nullable":true,"description":"Scales for additional LoRAs. Must match the number of extra_lora_weights."},"image":{"type":"string","format":"uri","title":"Image","x_order":7,"description":"Input image for img2img pipeline"},"strength":{"type":"number","title":"Strength","default":0.9,"minimum":0,"maximum":1,"x_order":8,"description":"Strength for img2img pipeline"},"negative_prompt":{"type":"string","title":"Negative Prompt","default":" ","x_order":9,"description":"Negative prompt for generated image"},"aspect_ratio":{"enum":["1:1","16:9","9:16","4:3","3:4","3:2","2:3"],"type":"string","title":"aspect_ratio","default":"16:9","x_order":10,"description":"Aspect ratio for the generated image"},"image_size":{"enum":["optimize_for_quality","optimize_for_speed"],"type":"string","title":"image_size","default":"optimize_for_quality","x_order":11,"description":"Image size for the generated image"},"go_fast":{"type":"boolean","title":"Go Fast","default":true,"x_order":12,"description":"Run faster predictions with additional optimizations."},"num_inference_steps":{"type":"integer","title":"Num Inference Steps","default":30,"minimum":1,"maximum":50,"x_order":13,"description":"Number of denoising steps. Recommended 28-50."},"guidance":{"type":"number","title":"Guidance","default":3,"minimum":0,"maximum":10,"x_order":14,"description":"Guidance for generated image."},"seed":{"type":"integer","title":"Seed","x_order":15,"description":"Random seed. Set for reproducible generation"},"output_format":{"enum":["webp","jpg","png"],"type":"string","title":"output_format","default":"webp","x_order":16,"description":"Format of the output images"},"output_quality":{"type":"integer","title":"Output Quality","default":80,"minimum":0,"maximum":100,"x_order":17,"description":"Quality 0-100. Not relevant for .png"},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"description":"Bypass NSFW filter","x_order":18}}}},
+  {"id":"alibaba/wan-3","name":"WAN 3.0","group":"video","category":"Video · WAN 3.0","version":"alibaba/wan-3:bb8bf2a1273cabad48e6c566ad7112e06bbc6ccf39684ffd81b618822735f056","description":"Alibaba Wan 3.0 — text-to-video + image-to-video, cinematic motion, 480p/720p/1080p, 2-30s, adaptive or 16:9/9:16/1:1/4:3/3:4. 50% off until Aug 30. From replicate_docs/wan3-llms.txt + live API.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Text prompt for video generation — cinematic motion, 2-30s. Tip: be descriptive about scene, lighting, camera movement."},"image":{"type":"string","format":"uri","title":"Image","x_order":1,"description":"Optional first-frame image to animate into a video (jpg/png/bmp/webp, ≤10MB). When provided, the video is generated from this image guided by the prompt. Aspect ratio is then ignored."},"negative_prompt":{"type":"string","title":"Negative Prompt","default":"","x_order":2,"description":"Content that should not appear — e.g. blurry, distorted, low quality, static."},"resolution":{"enum":["480p","720p","1080p"],"type":"string","title":"resolution","default":"1080p","x_order":3,"description":"Output resolution. Pricing per second: 480p $0.05 · 720p $0.10 · 1080p $0.20 (50% off on wan-3 until Aug 30)."},"aspect_ratio":{"enum":["adaptive","16:9","9:16","1:1","4:3","3:4"],"type":"string","title":"aspect_ratio","default":"adaptive","x_order":4,"description":"'adaptive' lets the model choose best ratio for prompt. Ignored when image is provided (input image ratio is used)."},"duration":{"type":"integer","title":"Duration","default":5,"minimum":2,"maximum":30,"x_order":5,"description":"Duration in seconds (2-30). Longer = more cinematic but pricier."},"enable_prompt_expansion":{"type":"boolean","title":"Enable Prompt Expansion","default":true,"x_order":6,"description":"Automatically expand and optimize short prompts for better results (adds latency)."},"seed":{"type":"integer","title":"Seed","x_order":7,"description":"Random seed 0-2147483647 for reproducible generation. Leave empty for random."}}}},
+  {"id":"alibaba/wan-3-prime","name":"WAN 3.0 Prime","group":"video","category":"Video · WAN 3.0","version":"alibaba/wan-3-prime:736267d3620794f7e744f46c814304617a16ff3d19e43ee70daa7bff87c7d150","description":"Wan 3.0 Prime — speed-optimized variant of Wan 3.0, same params (prompt, image, resolution, aspect_ratio, duration 2-30, prompt expansion). Up to 1080p/30s.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Text prompt for video generation — cinematic motion, 2-30s. Tip: be descriptive about scene, lighting, camera movement."},"image":{"type":"string","format":"uri","title":"Image","x_order":1,"description":"Optional first-frame image to animate into a video (jpg/png/bmp/webp, ≤10MB). When provided, the video is generated from this image guided by the prompt. Aspect ratio is then ignored."},"negative_prompt":{"type":"string","title":"Negative Prompt","default":"","x_order":2,"description":"Content that should not appear — e.g. blurry, distorted, low quality, static."},"resolution":{"enum":["480p","720p","1080p"],"type":"string","title":"resolution","default":"1080p","x_order":3,"description":"Output resolution. Pricing per second: 480p $0.05 · 720p $0.10 · 1080p $0.20 (50% off on wan-3 until Aug 30)."},"aspect_ratio":{"enum":["adaptive","16:9","9:16","1:1","4:3","3:4"],"type":"string","title":"aspect_ratio","default":"adaptive","x_order":4,"description":"'adaptive' lets the model choose best ratio for prompt. Ignored when image is provided (input image ratio is used)."},"duration":{"type":"integer","title":"Duration","default":5,"minimum":2,"maximum":30,"x_order":5,"description":"Duration in seconds (2-30). Longer = more cinematic but pricier."},"enable_prompt_expansion":{"type":"boolean","title":"Enable Prompt Expansion","default":true,"x_order":6,"description":"Automatically expand and optimize short prompts for better results (adds latency)."},"seed":{"type":"integer","title":"Seed","x_order":7,"description":"Random seed 0-2147483647 for reproducible generation. Leave empty for random."}}}},
+  {"id":"wan-video/wan-2.2-t2v-fast","name":"WAN 2.2 T2V Fast","group":"video","category":"Video · WAN","version":"wan-video/wan-2.2-t2v-fast:c483b1f7b892065bc58ebadb6381abf557f6b1f517d2ff0febb3fb635cf49b4d","description":"Wan 2.2 T2V Fast — text-to-video, 480p 16:9/9:16, 81-121 frames, 5-30fps. For image-to-video use WAN 2.2 I2V Fast or WAN 3.0.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Prompt for video generation"},"aspect_ratio":{"enum":["16:9","9:16"],"type":"string","title":"aspect_ratio","default":"16:9","x_order":1,"description":"Aspect ratio 16:9 (832x480) or 9:16 (480x832)"},"resolution":{"enum":["480p"],"type":"string","title":"resolution","default":"480p","x_order":2,"description":"Resolution 480p only for 2.2 fast"},"num_frames":{"type":"integer","title":"Num Frames","default":81,"minimum":81,"maximum":121,"x_order":3,"description":"81 frames best, 121 max"},"frames_per_second":{"type":"integer","title":"Frames Per Second","default":16,"minimum":5,"maximum":30,"x_order":4,"description":"FPS, pricing based on 16fps duration"},"sample_shift":{"type":"number","title":"Sample Shift","default":12,"minimum":1,"maximum":20,"x_order":5,"description":"Sample shift factor"},"go_fast":{"type":"boolean","title":"Go Fast","default":true,"x_order":6,"description":"Go fast"},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"x_order":7,"description":"Bypass NSFW filter — true for unrestricted"},"seed":{"type":"integer","title":"Seed","x_order":8,"description":"Random seed"},"optimize_prompt":{"type":"boolean","title":"Optimize Prompt","default":false,"x_order":9,"description":"Translate prompt to Chinese"},"interpolate_output":{"type":"boolean","title":"Interpolate Output","default":true,"x_order":10,"description":"Interpolate to 30fps"}}}},
+  {"id":"wan-video/wan-2.2-i2v-fast","name":"WAN 2.2 I2V Fast","group":"video","category":"Video · WAN","version":"wan-video/wan-2.2-i2v-fast:4eaf2b01d3bf70d8a2e00b219efeb7cb415855ad18b7dacdc4cae664a73a6eea","description":"Wan 2.2 I2V Fast — image-to-video, supports image + last_image, 480p, 81 frames. Fixed: was wan-2.1-t2v-14b (Model not found).","schema":{"type":"object","title":"Input","required":["prompt","image"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Prompt for video generation"},"image":{"type":"string","format":"uri","title":"Image","x_order":1,"description":"Input image to generate video from (required for I2V)"},"last_image":{"type":"string","format":"uri","title":"Last Image","x_order":2,"description":"Optional last image for transition"},"resolution":{"enum":["480p"],"type":"string","title":"resolution","default":"480p","x_order":3,"description":"480p only"},"num_frames":{"type":"integer","title":"Num Frames","default":81,"minimum":81,"maximum":121,"x_order":4,"description":"81 frames best"},"frames_per_second":{"type":"integer","title":"Frames Per Second","default":16,"minimum":5,"maximum":30,"x_order":5,"description":"FPS"},"sample_shift":{"type":"number","title":"Sample Shift","default":12,"minimum":1,"maximum":20,"x_order":6,"description":"Sample shift"},"go_fast":{"type":"boolean","title":"Go Fast","default":true,"x_order":7,"description":"Go fast"},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":true,"x_order":8,"description":"Bypass NSFW filter"},"seed":{"type":"integer","title":"Seed","x_order":9,"description":"Random seed"},"interpolate_output":{"type":"boolean","title":"Interpolate Output","default":false,"x_order":10,"description":"Interpolate to 30fps"}}}},
+  {"id":"wavespeedai/wan-2.1-i2v-480p","name":"WAN 2.1 I2V 480p (WaveSpeed)","group":"video","category":"Video · WAN","version":"wavespeedai/wan-2.1-i2v-480p:e2870aa4965fd9ddfd87c16a3c8ab952c18e745e63f3f3b123c2dc8b538ad2b5","description":"WaveSpeed Wan 2.1 I2V 480p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 480P adapters. Note: WaveSpeed may still block explicit outputs provider-side even with NSFW enabled (observed 2026-09-11).","schema":{"type":"object","title":"Input","required":["prompt","image"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Text prompt for image generation"},"negative_prompt":{"type":"string","title":"Negative Prompt","default":"","x_order":1,"description":"Negative prompt to avoid certain elements"},"aspect_ratio":{"enum":["16:9","9:16"],"type":"string","title":"aspect_ratio","default":"16:9","x_order":2,"description":"Aspect ratio of the output video."},"image":{"type":"string","format":"uri","title":"Image","x_order":3,"description":"Image for use as the initial frame of the video."},"fast_mode":{"enum":["Off","Balanced","Fast"],"type":"string","title":"fast_mode","default":"Balanced","x_order":4,"description":"Speed up generation with different levels of acceleration. Faster modes may degrade quality somewhat."},"seed":{"type":"integer","title":"Seed","x_order":5,"description":"Random seed. Set for reproducible generation"},"sample_guide_scale":{"type":"number","title":"Sample Guide Scale","default":5,"minimum":1,"maximum":10,"x_order":6,"description":"Guidance scale for generation"},"sample_steps":{"type":"integer","title":"Sample Steps","default":30,"minimum":1,"maximum":40,"x_order":7,"description":"Number of inference steps"},"sample_shift":{"type":"integer","title":"Sample Shift","default":3,"minimum":0,"maximum":10,"x_order":8,"description":"Flow shift parameter for video generation"},"lora_weights":{"type":"string","title":"Lora Weights","x_order":9,"nullable":true,"description":"Load LoRA weights. Supports HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet."},"lora_scale":{"type":"number","title":"Lora Scale","default":1,"minimum":0,"maximum":4,"x_order":10,"description":"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1."},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":false,"x_order":11,"description":"Disable safety checker for generated videos"}}}},
+  {"id":"wavespeedai/wan-2.1-i2v-720p","name":"WAN 2.1 I2V 720p (WaveSpeed)","group":"video","category":"Video · WAN","version":"wavespeedai/wan-2.1-i2v-720p:1f0a7fa066689a087b597a314f60ef74d1a720fa1fb9a7083487c4b01db3395f","description":"WaveSpeed Wan 2.1 I2V 720p — lora_weights (docs-format HF/CivitAI URLs) + safety toggle. LoRA target for Wan 2.1 I2V 720P adapters. Note: WaveSpeed may still block explicit outputs provider-side even with NSFW enabled (observed 2026-09-11).","schema":{"type":"object","title":"Input","required":["prompt","image"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Text prompt for image generation"},"negative_prompt":{"type":"string","title":"Negative Prompt","default":"","x_order":1,"description":"Negative prompt to avoid certain elements"},"aspect_ratio":{"enum":["16:9","9:16"],"type":"string","title":"aspect_ratio","default":"16:9","x_order":2,"description":"Aspect ratio of the output video."},"image":{"type":"string","format":"uri","title":"Image","x_order":3,"description":"Image for use as the initial frame of the video."},"fast_mode":{"enum":["Off","Balanced","Fast"],"type":"string","title":"fast_mode","default":"Balanced","x_order":4,"description":"Speed up generation with different levels of acceleration. Faster modes may degrade quality somewhat."},"seed":{"type":"integer","title":"Seed","x_order":5,"description":"Random seed. Set for reproducible generation"},"sample_guide_scale":{"type":"number","title":"Sample Guide Scale","default":5,"minimum":1,"maximum":10,"x_order":6,"description":"Guidance scale for generation"},"sample_steps":{"type":"integer","title":"Sample Steps","default":30,"minimum":1,"maximum":40,"x_order":7,"description":"Number of inference steps"},"sample_shift":{"type":"integer","title":"Sample Shift","default":3,"minimum":0,"maximum":10,"x_order":8,"description":"Flow shift parameter for video generation"},"lora_weights":{"type":"string","title":"Lora Weights","x_order":9,"nullable":true,"description":"Load LoRA weights. Supports HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet."},"lora_scale":{"type":"number","title":"Lora Scale","default":1,"minimum":0,"maximum":4,"x_order":10,"description":"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1."},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":false,"x_order":11,"description":"Disable safety checker for generated videos"}}}},
+  {"id":"wan-video/wan2.1-with-lora","name":"Wan 2.1 with LoRA","group":"video","category":"Video · WAN","version":"wan-video/wan2.1-with-lora:c48fa8ec65b13143cb552ab98ea17984eab9d70e9fe99479117de40a2a7f9ed0","description":"Wan 2.1 14b/1.3b T2V+I2V with lora_url + model/CLIP strength sliders. Use 14b for 14B LoRAs.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Text prompt for video generation"},"negative_prompt":{"type":"string","title":"Negative Prompt","default":"","x_order":1,"description":"Things you do not want to see in your video"},"image":{"type":"string","format":"uri","title":"Image","x_order":2,"nullable":true,"description":"Image to use as a starting frame for image to video generation."},"aspect_ratio":{"enum":["16:9","9:16","1:1"],"type":"string","title":"aspect_ratio","default":"16:9","x_order":3,"description":"The aspect ratio of the video."},"frames":{"enum":[17,33,49,65,81],"type":"integer","title":"Frames","default":81,"x_order":4,"description":"The number of frames to generate (1 to 5 seconds)"},"model":{"enum":["1.3b","14b"],"type":"string","title":"Model","default":"14b","x_order":5,"description":"The model to use. 1.3b is faster, but 14b is better quality. Use 14b for 14B LoRAs."},"resolution":{"enum":["480p","720p"],"type":"string","title":"Resolution","default":"480p","x_order":6,"description":"The resolution of the video. 720p is not supported for 1.3b."},"lora_url":{"type":"string","title":"Lora URL","x_order":7,"nullable":true,"description":"Optional: the URL of a LoRA to use (HF resolve .safetensors URL)."},"lora_strength_model":{"type":"number","title":"Lora Strength Model","default":1,"x_order":8,"description":"Strength of the LoRA applied to the model. 0.0 is no LoRA."},"lora_strength_clip":{"type":"number","title":"Lora Strength Clip","default":1,"x_order":9,"description":"Strength of the LoRA applied to the CLIP model. 0.0 is no LoRA."},"fast_mode":{"enum":["Off","Balanced","Fast"],"type":"string","title":"fast_mode","default":"Balanced","x_order":10,"description":"Speed up generation with different levels of acceleration."},"sample_steps":{"type":"integer","title":"Sample Steps","default":30,"minimum":1,"maximum":60,"x_order":11,"description":"Number of generation steps. Fewer steps means faster generation."},"sample_guide_scale":{"type":"number","title":"Sample Guide Scale","default":5,"minimum":0,"maximum":10,"x_order":12,"description":"Higher guide scale makes prompt adherence better, but can reduce variation"},"sample_shift":{"type":"number","title":"Sample Shift","default":8,"minimum":0,"maximum":10,"x_order":13,"description":"Sample shift factor"},"seed":{"type":"integer","title":"Seed","x_order":14,"description":"Set a seed for reproducibility. Random by default."}}}},
+  {"id":"wavespeedai/wan-2.1-t2v-480p","name":"WAVESPEED Wan 2.1 T2V 480p","group":"video","category":"Video · Wavespeed","version":"wavespeedai/wan-2.1-t2v-480p:7677a619127ea34d1ed873fb5b77448e4b9889fbd83809b44a2c459ace99192a","description":"WavespeedAI Wan 2.1 T2V 480p — I2V (image required) + T2V, 16:9/9:16, fast_mode Off/Balanced/Fast, sample_steps 1-40, lora_scale 0-4, disable_safety_checker for unrestricted.","schema":{"type":"object","title":"Input","required":["prompt","image"],"properties":{"seed":{"type":"integer","title":"Seed","x-order":5,"nullable":true,"description":"Random seed. Set for reproducible generation"},"image":{"type":"string","title":"Image","format":"uri","x-order":3,"description":"Image for use as the initial frame of the video."},"prompt":{"type":"string","title":"Prompt","x-order":0,"description":"Text prompt for image generation"},"fast_mode":{"enum":["Off","Balanced","Fast"],"type":"string","title":"fast_mode","description":"Speed up generation with different levels of acceleration. Faster modes may degrade quality somewhat. The speedup is dependent on the content, so different videos may see different speedups.","default":"Balanced","x-order":4},"lora_scale":{"type":"number","title":"Lora Scale","default":1,"maximum":4,"minimum":0,"x-order":10,"description":"Determines how strongly the main LoRA should be applied. Sane results between 0 and 1 for base inference. You may still need to experiment to find the best value for your particular lora."},"aspect_ratio":{"enum":["16:9","9:16"],"type":"string","title":"aspect_ratio","description":"Aspect ratio of the output video.","default":"16:9","x-order":2},"lora_weights":{"type":"string","title":"Lora Weights","x-order":9,"nullable":true,"description":"Load LoRA weights. Supports HuggingFace URLs in the format huggingface.co/<owner>/<model-name>, CivitAI URLs in the format civitai.com/models/<id>[/<model-name>], or arbitrary .safetensors URLs from the Internet."},"sample_shift":{"type":"integer","title":"Sample Shift","default":3,"maximum":10,"minimum":0,"x-order":8,"description":"Flow shift parameter for video generation"},"sample_steps":{"type":"integer","title":"Sample Steps","default":30,"maximum":40,"minimum":1,"x-order":7,"description":"Number of inference steps"},"negative_prompt":{"type":"string","title":"Negative Prompt","default":"","x-order":1,"description":"Negative prompt to avoid certain elements"},"sample_guide_scale":{"type":"number","title":"Sample Guide Scale","default":5,"maximum":10,"minimum":1,"x-order":6,"description":"Guidance scale for generation"},"disable_safety_checker":{"type":"boolean","title":"Disable Safety Checker","default":false,"x-order":11,"description":"Disable safety checker for generated videos"}}}},
+  {"id":"minimax/h3","name":"MiniMax H3 (I2V + reference)","group":"video","category":"Video · Hailuo","version":"minimax/h3","official":true,"description":"MiniMax H3 official — T2V + first/last-frame I2V + reference (9 imgs / 3 vids / 3 audio), 4-15s, 768P/2K ($0.08/$0.13 per s). Official model: runs latest, no version pin. No LoRA slots; moderation is MiniMax-side.","schema":{"type":"object","title":"Input","required":["prompt"],"properties":{"prompt":{"type":"string","title":"Prompt","x_order":0,"description":"Text prompt describing the video"},"first_frame_image":{"type":"string","format":"uri","title":"First Frame Image","x_order":1,"description":"Optional first frame — output follows its aspect ratio (I2V)"},"last_frame_image":{"type":"string","format":"uri","title":"Last Frame Image","x_order":2,"description":"Optional last frame — final frame matches it"},"reference_image_urls":{"type":"array","items":{"type":"string","format":"uri"},"title":"Reference Images","default":[],"x_order":3,"description":"Up to 9 reference images (character/style consistency)"},"reference_video_urls":{"type":"array","items":{"type":"string","format":"uri"},"title":"Reference Videos","default":[],"x_order":4,"description":"Up to 3 reference videos (motion/camera/rhythm guide)"},"reference_audio_urls":{"type":"array","items":{"type":"string","format":"uri"},"title":"Reference Audio","default":[],"x_order":5,"description":"Up to 3 reference audio clips (voice/rhythm guide)"},"duration":{"type":"integer","title":"Duration (s)","default":5,"minimum":4,"maximum":15,"x_order":6,"description":"4-15s. Billed per second: $0.08/s 768P, $0.13/s 2K"},"resolution":{"enum":["768P","2K"],"type":"string","title":"Resolution","default":"768P","x_order":7,"description":"768P cheap / 2K premium"},"ratio":{"enum":["adaptive","16:9","9:16","1:1","4:3","3:4","21:9"],"type":"string","title":"Aspect Ratio","default":"adaptive","x_order":8,"description":"REQUIRED for text-to-video (pick a concrete ratio). Use adaptive with first_frame_image"}}}}
+]
 
 // Runtime state
 let allModels = [...CATALOG];
@@ -1197,11 +1055,11 @@ async function testToken(){
   $('btnTestToken').textContent='…'; $('btnTestToken').disabled=true;
   // Try Worker proxy first (no CORS, uses server REPLICATE_API_TOKEN)
   try{
-    const r=await fetch('/api/replicate/models/d33pstatetech-stack/aznten_replicate');
+    const r=await fetch('/api/replicate/models/black-forest-labs/flux-schnell');
     const ct=(r.headers.get('content-type')||'');
     if(ct.includes('application/json')){
       const j=await r.json();
-      if(r.ok){ toast('Token OK — '+ (j.name||'aznten_replicate') + ' (via Worker)'); setConnection(true,'Token valid via Worker'); $('btnTestToken').textContent='Test'; $('btnTestToken').disabled=false; return; }
+      if(r.ok){ toast('Token OK — '+ (j.name||'flux-schnell') + ' (via Worker)'); setConnection(true,'Token valid via Worker'); $('btnTestToken').textContent='Test'; $('btnTestToken').disabled=false; return; }
       // if Worker has no token, it returns 500 — fall through to direct
       if(r.status!==404) {
         // show Worker error but still try direct as fallback if user has token
@@ -1213,9 +1071,9 @@ async function testToken(){
   }
   const tok=getToken(); if(!tok) { toast('Paste REPLICATE_API_TOKEN first (or set on Worker)','error'); $('btnTestToken').textContent='Test'; $('btnTestToken').disabled=false; setConnection(false,'no token'); return; }
   try{
-    const r=await fetch('https://api.replicate.com/v1/models/d33pstatetech-stack/aznten_replicate',{headers:{Authorization:`Bearer ${tok}`}});
+    const r=await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell',{headers:{Authorization:`Bearer ${tok}`}});
     const j=await r.json();
-    if(r.ok){ toast('Token OK — '+ (j.name||'aznten_replicate') + ' (direct)'); setConnection(true,'Token valid direct'); }
+    if(r.ok){ toast('Token OK — '+ (j.name||'flux-schnell') + ' (direct)'); setConnection(true,'Token valid direct'); }
     else { toast('Token check failed: '+(j.detail||j.error||r.status),'error'); setConnection(false,r.status+''); }
   } catch(e){
     const help = corsHelp(e);
@@ -2191,7 +2049,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); generate(); }});
   $('btnClear').addEventListener('click',()=>{ $('promptInput').value=''; updatePayloadPreview(); });
   $('btnRandomPrompt').addEventListener('click',()=>{
-    const ex=["a serene mountain landscape at sunrise, cinematic lighting, ultra detailed, 8k","product photo of a minimalist chair, studio lighting, white background, 8k","aznten cyberpunk street at night, neon reflections, shallow depth of field, 35mm film grain","cinematic portrait of a woman, 85mm f/1.4, bokeh, natural skin texture, sharp focus"];
+    const ex=["a serene mountain landscape at sunrise, cinematic lighting, ultra detailed, 8k","product photo of a minimalist chair, studio lighting, white background, 8k","a rain-slick cyberpunk street at night, neon reflections, shallow depth of field, 35mm film grain","cinematic portrait of a woman, 85mm f/1.4, bokeh, natural skin texture, sharp focus"];
     $('promptInput').value=ex[Math.floor(Math.random()*ex.length)]; updatePayloadPreview();
   });
   $('btnSavePrompt').addEventListener('click', savePrompt);

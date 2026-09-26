@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 """
-Replicate API smoke test — mirrors the curl you provided.
-Requires:  pip install replicate  OR  plain http.client (this file uses stdlib only)
+Replicate API smoke test — stdlib only, no SDK required.
 Usage:
   set REPLICATE_API_TOKEN=<your-token-here>  (Windows)
   export REPLICATE_API_TOKEN=<your-token-here> (bash)
   python replicate_test.py
+
+Override the pinned model with REPLICATE_VERSION=owner/name:version.
 """
 import os, json, urllib.request, urllib.error, time
 
 TOKEN = os.environ.get("REPLICATE_API_TOKEN", "")
-VERSION = "d33pstatetech-stack/aznten_replicate:adbcf47ba36575b7d114c24331abf10a49420dab1a53f211aa507372721f7453"
+# Pinned in client/src/models.js as the Flux LoRA wrapper entry, which exercises
+# the richer input shape: two LoRA slots, go_fast, megapixels, and a
+# disable_safety_checker toggle.
+VERSION = os.environ.get(
+    "REPLICATE_VERSION",
+    "fofr/flux-pixar-cars:43768954c7bdc93d3bd0f01052652f8ce4e32781a37a7e832c048f7dc70b26bd",
+)
 
 payload = {
     "version": VERSION,
     "input": {
-        "model": "schnell",
-        "prompt": "aznten a serene mountain landscape at sunrise, cinematic lighting, ultra detailed, 8k",
+        "prompt": "a serene mountain landscape at sunrise, cinematic lighting, ultra detailed, 8k",
         "go_fast": True,
         "lora_scale": 1,
         "megapixels": "1",
@@ -26,11 +32,13 @@ payload = {
         "guidance_scale": 3,
         "output_quality": 80,
         "num_inference_steps": 4,
-        "disable_safety_checker": True  # unrestricted — bypass NSFW block; set False to re-enable filter
-    }
+        # Set False to re-enable the provider-side content filter. Left at the
+        # same default the client applies when a model exposes the toggle.
+        "disable_safety_checker": True,
+    },
 }
 
-# Alternative using replicate SDK (uncomment after `pip install replicate`):
+# Alternative using the replicate SDK (uncomment after `pip install replicate`):
 # import replicate
 # out = replicate.run(VERSION, input=payload["input"])
 # print(out)

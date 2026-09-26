@@ -3,18 +3,21 @@ main = "src/worker.js"
 compatibility_date = "2025-01-01"
 
 [assets]
-# BRANCH-ONLY (feature/replicate-react): serve the Vite build. main keeps "public".
+# Built React client (client/dist), served from the edge cache.
+# Rebuild with `npm --prefix client run build` before deploying.
 directory = "client/dist"
 not_found_handling = "single-page-application"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "replicate-orchestrator"
+# Environment-specific. Replace with the id from `wrangler d1 create` on a fork.
 database_id = "be087ef6-6d86-46a3-a305-48c71a32ac85"
 
 [[d1_databases]]
 binding = "HISTORY"
 database_name = "genai-history"
+# Environment-specific. Replace with the id from `wrangler d1 create` on a fork.
 database_id = "6a271502-ea90-411b-935c-50a16d5d5300"
 migrations_dir = "migrations-history"
 
@@ -24,3 +27,11 @@ bucket_name = "genai-assets"
 
 [vars]
 # REPLICATE_API_TOKEN, VENICE_API_KEY, OPENROUTER_API_KEY set via .dev.vars / dashboard secrets
+# Repos the /api/hf/file proxy may serve, as comma-separated owner/repo or
+# owner/* entries. Empty denies everything: the endpoint is reachable without a
+# session so Replicate's servers can pull private weights, and an open proxy
+# would spend this account's HF token on arbitrary files.
+HF_PROXY_REPO_ALLOWLIST = ""
+# Canonical origin to advertise when rewriting HuggingFace URLs to the proxy.
+# Leave empty to use the incoming request origin.
+HF_PROXY_BASE_URL = ""
