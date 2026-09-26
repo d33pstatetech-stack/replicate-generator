@@ -28,10 +28,22 @@ bucket_name = "genai-assets"
 [vars]
 # REPLICATE_API_TOKEN, VENICE_API_KEY, OPENROUTER_API_KEY set via .dev.vars / dashboard secrets
 # Repos the /api/hf/file proxy may serve, as comma-separated owner/repo or
-# owner/* entries. Reachable without a session so Replicate's servers can pull
-# PRIVATE weights with this account's HF token, which is also why it must not be
-# an open proxy. Public adapters are unaffected: their URLs are never rewritten.
-HF_PROXY_REPO_ALLOWLIST = "D33pStateTech/*"
+# owner/* entries. EMPTY BY DEFAULT, and that is the correct setting unless you
+# have a PRIVATE LoRA that Replicate cannot fetch on its own.
+#
+# With this empty no rewriting happens at all: a HuggingFace URL entered in a
+# LoRA field is passed to Replicate exactly as typed, and Replicate fetches it
+# from the Hub. That is the right path for every PUBLIC adapter - including
+# public repos you own - and it needs nothing from this Worker.
+#
+# Only set this when a repo is genuinely private or gated. Two prerequisites,
+# both easy to miss:
+#   1. An Access BYPASS must cover /api/hf/file. If an Access application
+#      covers the whole hostname without a bypass, Replicate receives a login
+#      page instead of the weights and the prediction hangs at "starting".
+#   2. The URL must contain /resolve/main/<file>. The bare owner/repo form
+#      carries no filename, so it is deliberately NOT rewritten.
+HF_PROXY_REPO_ALLOWLIST = ""
 # Canonical origin to advertise when rewriting HuggingFace URLs to the proxy.
 # Leave empty to use the incoming request origin.
 HF_PROXY_BASE_URL = ""

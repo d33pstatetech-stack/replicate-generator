@@ -557,27 +557,33 @@ async function handleApiRoute(request, env, path, ctx) {
   if (path === '/api/replicate/predictions' && request.method === 'POST') {
     if (!REPLICATE_API_TOKEN) return jsonResponse({ error: 'REPLICATE_API_TOKEN not configured on Worker' }, 500);
     let body; try { body = await request.json(); } catch { return jsonResponse({ error: 'Invalid JSON' }, 400); }
-    // Auto-rewrite HuggingFace URLs to proxied Worker URLs so Replicate can fetch
-    // them without HF auth. Only repos on the allowlist qualify; everything else
-    // is passed through untouched.
+    // Route HuggingFace URLs through this Worker so Replicate can fetch weights
+    // it cannot reach itself. Three rules, each of which has bitten before:
+    //
+    //   1. Only repos on HF_PROXY_REPO_ALLOWLIST qualify. It is empty by
+    //      default, so PUBLIC adapters are never rewritten - Replicate fetches
+    //      those from the Hub directly, which is the normal path and works.
+    //   2. Only the /resolve/main/<file> form is rewritten. The bare
+    //      owner/repo form carries no filename; guessing one (the old code
+    //      hardcoded pytorch_lora_weights.safetensors) requests a file that
+    //      does not exist in most repos, and the fetch then fails.
+    //   3. Rewriting is pointless unless /api/hf/file is actually reachable by
+    //      Replicate. An Access application covering the whole hostname with no
+    //      bypass for that path returns a login page, and the prediction hangs
+    //      at "starting" forever.
     try {
       const allow = hfProxyAllowlist(env);
       if (env.HUGGINGFACE_API_KEY && allow.length) {
         const bodyStr = JSON.stringify(body);
-        if (/huggingface\.co\//.test(bodyStr)) {
+        if (/huggingface\.co\/[^"']*\/resolve\//.test(bodyStr)) {
           const origin = (env.HF_PROXY_BASE_URL || new URL(request.url).origin).replace(/\/$/, '');
           const proxied = bodyStr.replace(
-            /https?:\/\/huggingface\.co\/([A-Za-z0-9._-]+\/[A-Za-z0-9._-]+)(\/resolve\/[^"?]+)?/g,
-            (m, repo, tail) => {
-              if (!hfRepoAllowedIn(allow, repo)) return m;
-              const file = (tail || '').replace(/^\/resolve\/[^/]+\//, '') || 'pytorch_lora_weights.safetensors';
-              return `${origin}/api/hf/file?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`;
-            },
-          ).replace(
-            /(?<!https:\/\/)huggingface\.co\/([A-Za-z0-9._-]+\/[A-Za-z0-9._-]+)(?!\/resolve)/g,
-            (m, repo) => (hfRepoAllowedIn(allow, repo)
-              ? `${origin}/api/hf/file?repo=${encodeURIComponent(repo)}&file=pytorch_lora_weights.safetensors`
-              : m),
+            /https?:\/\/huggingface\.co\/([A-Za-z0-9._-]+\/[A-Za-z0-9._-]+)\/resolve\/[^/]+\/([^"?]+)/g,
+            (m, repo, file) => (
+              hfRepoAllowedIn(allow, repo)
+                ? `${origin}/api/hf/file?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`
+                : m
+            ),
           );
           if (proxied !== bodyStr) body = JSON.parse(proxied);
         }
