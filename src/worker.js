@@ -637,6 +637,10 @@ async function handleApiRoute(request, env, path, ctx) {
     const r = await fetch(`https://api.replicate.com/v1/predictions/${id}/cancel`, { method: 'POST', headers: { Authorization: `Bearer ${REPLICATE_API_TOKEN}` } });
     const txt = await r.text();
     let j=null; try{ j=JSON.parse(txt);}catch{j=null;}
+    // Keep history truthful: a confirmed cancel leaves the row 'starting' forever otherwise.
+    if (j && j.id && j.status === 'canceled') {
+      bg(ctx, histUpdateRun(env, 'replicate', String(j.id), { status: 'canceled' }));
+    }
     return jsonResponse(j || { raw: txt }, r.status);
   }
 
