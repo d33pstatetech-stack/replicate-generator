@@ -32,11 +32,11 @@ export function isLoraParam(name, spec = {}) {
 }
 
 export function loraHintText() {
-  return 'LoRA formats: huggingface.co/owner/repo, direct ….safetensors URL, civitai.com/…, Replicate owner/name, or training .tar. Arrays take one per line. Never upload a .safetensors file here.';
+  return 'huggingface.co/owner/repo, a direct ….safetensors URL, civitai.com/…, Replicate owner/name, or a training .tar\nArray fields take one entry per line\nNever upload a .safetensors file here — paste a URL';
 }
 
 export function sizeHintText() {
-  return 'Format: width*height (e.g. 1024*1024). Limits vary by model — width/height fields show their own min/max where the schema defines them.';
+  return 'Format is width*height (e.g. 1024*1024)\nLimits vary by model — width/height fields show their own min/max where the schema defines them';
 }
 
 export function loraTokenIssues(tok) {
