@@ -853,6 +853,21 @@ async function handleApiRoute(request, env, path, ctx) {
     } catch (e) { return jsonResponse({ error: e.message }, 500); }
   }
 
+  // ─── GET /api/history/model-stats — top-by-usage aggregation (read-only, no schema change) ───
+  if (path === '/api/history/model-stats' && request.method === 'GET') {
+    const H = histDB(env);
+    if (!H) return jsonResponse({ error: 'HISTORY not configured' }, 500);
+    const q = new URL(request.url);
+    const limit = Math.min(parseInt(q.searchParams.get('limit') || '50', 10) || 50, 200);
+    try {
+      const { results } = await H.prepare(
+        `SELECT model, COUNT(*) AS runs, AVG(rating) AS avg_rating FROM runs WHERE model IS NOT NULL AND model != '' GROUP BY model ORDER BY runs DESC LIMIT ?`
+      ).bind(limit).all();
+      const stats = (results || []).map((r) => ({ model: r.model, runs: r.runs, avg_rating: r.avg_rating }));
+      return jsonResponse({ stats, total: stats.length });
+    } catch (e) { return jsonResponse({ error: e.message }, 500); }
+  }
+
   // ─── GET /api/health ───
   if (path === '/api/health') {
     let count=0; try{ const row=await DB.prepare('SELECT COUNT(*) as count FROM prompts').first(); count=row?.count||0; }catch{}

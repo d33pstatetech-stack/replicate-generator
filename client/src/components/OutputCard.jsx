@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { rateJob, saveOutputs } from '../api';
+import MediaViewer from './MediaViewer';
 
 function isVideoUrl(u) {
   return /\.(mp4|webm|mov)$/i.test(u || '') || (u || '').includes('video');
@@ -10,8 +11,9 @@ export default function OutputCard({ result, modelId, notify }) {
   const [rating, setRating] = useState(0);
   const [arch, setArch] = useState(null); // { ok, total, firstErr } | { failed:true }
   const [sel, setSel] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const reqId = result?.requestId;
-  useEffect(() => { setSel(0); setRating(0); setArch(null); }, [reqId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setSel(0); setRating(0); setArch(null); setViewerOpen(false); }, [reqId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!result?.outputs?.length) return null;
   const outputs = result.outputs;
@@ -56,9 +58,25 @@ export default function OutputCard({ result, modelId, notify }) {
         </div>
       </div>
       {video ? (
-        <video src={url} controls autoPlay loop className="w-full max-h-[500px] rounded-xl bg-black" />
+        <video src={url} controls autoPlay loop onClick={() => setViewerOpen(true)} className="w-full max-h-[500px] rounded-xl bg-black cursor-zoom-in" />
       ) : (
-        <img src={url} alt="Generated" className="w-full max-h-[500px] object-contain rounded-xl bg-black" />
+        <img src={url} alt="Generated" onClick={() => setViewerOpen(true)} title="Click to expand" className="w-full max-h-[500px] object-contain rounded-xl bg-black cursor-zoom-in" />
+      )}
+      {viewerOpen && (
+        <MediaViewer
+          item={{
+            url,
+            urls: outputs,
+            model: modelId || result?.model,
+            prompt: result?.prompt,
+            params: result?.params,
+            loras: result?.loras,
+            rating: rating || result?.rating || null,
+            cost: costStr !== 'N/A' ? costStr : (result?.cost ?? null),
+            timestamp: result?.time || result?.created_at || null,
+          }}
+          onClose={() => setViewerOpen(false)}
+        />
       )}
       {outputs.length > 1 && (
         <div className="flex gap-1.5 mt-2 overflow-x-auto" role="tablist" aria-label="Outputs">

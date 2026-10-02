@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { fetchModelStats } from '../api';
 import { filterModels } from '../lora-compat';
 
 const GROUPS = [
@@ -13,6 +14,15 @@ const TIER_DOT = {
   no: ['bg-red-500', 'Incompatible with the pinned LoRA (visible via Show all)'],
 };
 
+// Pinned favorites matcher: /az.?nten|asian[-_ ]?ten/i plus _/- variants
+// (the "." already covers "_" and "-", the explicit class below makes the
+// _/-/_ variants obvious and also covers "." and " " separators).
+const AZNTEN_RE = /az[._\- ]?nten|asian[-_ .]?ten/i;
+
+function isAznten(m) {
+  return AZNTEN_RE.test(m?.id || '') || AZNTEN_RE.test(m?.name || '');
+}
+
 // Searchable model picker with category tabs. Props: models, value (id),
 // onSelect(id), focusLoras (pinned LoRA entries filter the list to
 // compatibles), onClearFocus().
@@ -21,6 +31,8 @@ export default function ModelPicker({ models, value, onSelect, focusLoras, onCle
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [showAllModels, setShowAllModels] = useState(false);
+  const [modelStats, setModelStats] = useState([]);
+  const [collapsed, setCollapsed] = useState({});
   const wrapRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +41,19 @@ export default function ModelPicker({ models, value, onSelect, focusLoras, onCle
     };
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const stats = await fetchModelStats(50);
+        if (live && Array.isArray(stats)) setModelStats(stats);
+      } catch {
+        /* stats are best-effort; favorites fall back to aznten matches */
+      }
+    })();
+    return () => { live = false; };
   }, []);
 
   const focusing = Array.isArray(focusLoras) && focusLoras.length > 0;
@@ -40,20 +65,49 @@ export default function ModelPicker({ models, value, onSelect, focusLoras, onCle
     return m;
   }, [mfilt]);
 
-  const filtered = useMemo(() => {
+  const runsOf = useMemo(() => {
+    const m = new Map();
+    for (const s of modelStats) {
+      if (s && s.model) m.set(s.model, Number(s.runs) || 0);
+    }
+    return m;
+  }, [modelStats]);
+
+  const baseList = useMemo(() => {
     const base = group === 'all' ? models : models.filter((m) => m.group_of === group);
     const q = query.trim().toLowerCase();
     const list = q ? base.filter((m) => (m.id || '').toLowerCase().includes(q) || (m.name || '').toLowerCase().includes(q)) : base;
-    const compat = focusing && !showAllModels ? list.filter((m) => (tierOf.get(m.id) || 'likely') !== 'no') : list;
+    return focusing && !showAllModels ? list.filter((m) => (tierOf.get(m.id) || 'likely') !== 'no') : list;
+  }, [models, group, query, focusing, showAllModels, tierOf]);
+
+  const favorites = useMemo(() => {
+    const azMatches = baseList.filter(isAznten);
+    const topByUsage = [...baseList]
+      .sort((a, b) => (runsOf.get(b.id) || 0) - (runsOf.get(a.id) || 0))
+      .filter((m) => (runsOf.get(m.id) || 0) > 0)
+      .slice(0, 8);
+    const dedup = new Map();
+    for (const m of [...azMatches, ...topByUsage]) dedup.set(m.id, m);
+    return [...dedup.values()].sort((a, b) => {
+      const azA = isAznten(a) ? 0 : 1;
+      const azB = isAznten(b) ? 0 : 1;
+      if (azA !== azB) return azA - azB;
+      const r = (runsOf.get(b.id) || 0) - (runsOf.get(a.id) || 0);
+      if (r !== 0) return r;
+      return (a.name || a.id).localeCompare(b.name || b.id);
+    });
+  }, [baseList, runsOf]);
+
+  const filtered = useMemo(() => {
     const byCat = {};
-    for (const m of compat) {
+    for (const m of baseList) {
       const cat = m.category || 'Other';
       (byCat[cat] = byCat[cat] || []).push(m);
     }
     return Object.entries(byCat)
       .sort((a, b) => b[1].length - a[1].length)
       .map(([cat, ms]) => [cat, [...ms].sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))]);
-  }, [models, group, query, focusing, showAllModels, tierOf]);
+  }, [baseList]);
 
   const count = useMemo(
     () => filtered.reduce((n, [, ms]) => n + ms.length, 0),
@@ -61,6 +115,34 @@ export default function ModelPicker({ models, value, onSelect, focusLoras, onCle
   );
 
   const selected = models.find((m) => m.id === value);
+  const searching = query.trim().length > 0;
+  const isCollapsed = (cat) => (searching ? false : (collapsed[cat] ?? true));
+
+  const renderModelButton = (m) => (
+    <button
+      key={m.id}
+      type="button"
+      onClick={() => { onSelect(m.id); setOpen(false); setQuery(''); }}
+      className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-800 ${
+        m.id === value ? 'text-violet-300 bg-violet-950/40' : 'text-gray-300'
+      }`}
+    >
+      {focusing && (() => {
+        const tier = tierOf.get(m.id) || 'likely';
+        const [dotCls, dotTip] = TIER_DOT[tier] || TIER_DOT.likely;
+        return <span title={dotTip} className={`w-2 h-2 rounded-full flex-none ${dotCls}`}></span>;
+      })()}
+      <span className="truncate flex-1">{m.id}</span>
+      {(runsOf.get(m.id) || 0) > 0 && (
+        <span className="flex-none text-[10px] font-mono text-gray-500" title={`${runsOf.get(m.id)} runs`}>
+          ×{runsOf.get(m.id)}
+        </span>
+      )}
+      <span className="flex-none text-[10px] font-mono text-gray-500">
+        {m.cost > 0 ? `$${m.cost}` : 'Free'}{m.dynamic_pricing ? '*' : ''}
+      </span>
+    </button>
+  );
 
   return (
     <div>
@@ -123,34 +205,31 @@ export default function ModelPicker({ models, value, onSelect, focusLoras, onCle
         </div>
         {open && (
           <div className="absolute z-40 left-0 right-0 mt-1 max-h-72 overflow-y-auto bg-gray-900 border border-gray-700 rounded-lg shadow-xl">
-            {filtered.length === 0 && <div className="p-4 text-sm text-gray-600">No models found</div>}
-            {filtered.map(([cat, ms]) => (
-              <div key={cat}>
-                <div className="px-3 pt-2.5 pb-1 text-[10px] uppercase tracking-wider text-gray-500 sticky top-0 bg-gray-900">
-                  {cat} ({ms.length})
-                </div>
-                {ms.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => { onSelect(m.id); setOpen(false); setQuery(''); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-800 ${
-                      m.id === value ? 'text-violet-300 bg-violet-950/40' : 'text-gray-300'
-                    }`}
-                  >
-                    {focusing && (() => {
-                      const tier = tierOf.get(m.id) || 'likely';
-                      const [dotCls, dotTip] = TIER_DOT[tier] || TIER_DOT.likely;
-                      return <span title={dotTip} className={`w-2 h-2 rounded-full flex-none ${dotCls}`}></span>;
-                    })()}
-                    <span className="truncate flex-1">{m.id}</span>
-                    <span className="flex-none text-[10px] font-mono text-gray-500">
-                      {m.cost > 0 ? `$${m.cost}` : 'Free'}{m.dynamic_pricing ? '*' : ''}
-                    </span>
-                  </button>
-                ))}
+            <div>
+              <div className="px-3 pt-2.5 pb-1 text-[10px] uppercase tracking-wider text-amber-300 sticky top-0 bg-gray-900">
+                ★ Favorites ({favorites.length})
               </div>
-            ))}
+              {favorites.length === 0 && <div className="px-3 py-2 text-xs text-gray-600">No favorites yet — run a model to pin it here.</div>}
+              {favorites.map(renderModelButton)}
+            </div>
+            {filtered.length === 0 && <div className="p-4 text-sm text-gray-600">No models found</div>}
+            {filtered.map(([cat, ms]) => {
+              const col = isCollapsed(cat);
+              return (
+                <div key={cat}>
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed((c) => ({ ...c, [cat]: !(c[cat] ?? true) }))}
+                    aria-expanded={!col}
+                    className="w-full flex items-center gap-1.5 px-3 pt-2.5 pb-1 text-[10px] uppercase tracking-wider text-gray-500 sticky top-0 bg-gray-900 hover:text-gray-300 text-left"
+                  >
+                    <i className={`fas ${col ? 'fa-chevron-right' : 'fa-chevron-down'} text-[9px]`}></i>
+                    <span className="flex-1 truncate">{cat} ({ms.length})</span>
+                  </button>
+                  {!col && ms.map(renderModelButton)}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

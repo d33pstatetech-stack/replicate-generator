@@ -123,6 +123,14 @@ export async function rateJob({ externalJobId, rating }) {
   return json(res);
 }
 
+export async function fetchModelStats(limit = 50) {
+  const res = await fetch(`${API}/api/history/model-stats?limit=${encodeURIComponent(limit)}`);
+  const data = await json(res);
+  if (!res.ok) throw new Error(errText(data.error, `Model stats failed (${res.status})`));
+  if (Array.isArray(data)) return data;
+  return Array.isArray(data.stats) ? data.stats : [];
+}
+
 // Cloud picker: worker list shape is { folders, objects[{key,size,uploaded}],
 // truncated, cursor } with query { prefix, delimiter | recursive=1, cursor }.
 export async function cloudList({ prefix = '', flat = false, cursor = null } = {}) {
