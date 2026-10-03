@@ -20,6 +20,7 @@ import {
 } from "./lib/api";
 import { tierFor } from "./lib/tiers";
 import type { App } from "./lib/loraFormats";
+import { insertFormat } from "./lib/loraFormats";
 import { useMediaQuery, usePersistentState } from "./lib/hooks";
 import { USER_LORAS, NSFW_LORAS, isAzntenLora } from "./loras-data";
 import { buildSubmitParams } from "./params";
@@ -43,6 +44,39 @@ function seedLibrary(): Lora[] {
    offers, and which confirmed model+LoRA pairs count as verified. */
 const APP_ID: App = 'replicate';
 
+/* Customs flow through the same regex-on-name grouping as the seed library,
+   so a custom named aznten-* lands in the Aznten tab. Seed grouping is
+   unchanged. */
+function tagCustomEntry(entry: any) {
+  return { ...entry, isAznten: isAzntenLora(entry), isNsfw: !!entry?.nsfw };
+}
+
+/* Ad-hoc LoRA (this run only, never saved): direct .safetensors URL, HF
+   owner/repo, full HF file URL, or civitai:ID → entry for insertFormat.
+   Unlike the WaveSpeed twin the HF branch carries repo_url, so
+   insertFormat('replicate') yields the documented huggingface.co/owner/repo
+   form instead of the UNKNOWN.safetensors placeholder it returns for a bare
+   id. */
+function adhocEntryForInput(raw: string): any {
+  const t = String(raw || '').trim();
+  if (!t) return null;
+  const cm = t.match(/^civitai:(\d+)(?:@\d+)?$/i);
+  if (cm) return { id: `civitai:${cm[1]}`, repo_url: `https://civitai.com/models/${cm[1]}` };
+  let withScheme = /:\/\//.test(t) ? t : `https://${t}`;
+  try {
+    const u = new URL(withScheme);
+    if (/\.safetensors$/i.test(u.pathname)) return { file_url: u.toString(), repo_url: u.toString() };
+    const hm = withScheme.match(/huggingface\.co\/([^/\s?#]+)\/([^/\s?#]+)/i);
+    if (hm) {
+      const repo = `${hm[1]}/${hm[2].replace(/\/$/, '')}`;
+      return { id: repo, repo_url: `https://huggingface.co/${repo}` };
+    }
+  } catch { /* not a URL — fall through to bare repo */ }
+  if (/^[^/\s:]+\/[^/\s:]+$/.test(t)) return { id: t, repo_url: `https://huggingface.co/${t}` };
+  if (/^https?:\/\//i.test(withScheme)) return { file_url: withScheme, repo_url: withScheme };
+  return { file_url: t, repo_url: t };
+}
+
 function Console() {
   const { toast, toastUndo } = useToast();
 
@@ -65,6 +99,8 @@ function Console() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [enhancementId, setEnhancementId] = useState<number | null>(null);
   const [library, setLibrary] = useState<Lora[]>(seedLibrary);
+  /* Ad-hoc LoRA for this run only — never saved to the library or D1. */
+  const [adhocLora, setAdhocLora] = useState("");
 
   const abort = useRef<AbortController | null>(null);
 
@@ -99,7 +135,7 @@ function Console() {
       if (!live || !rows.length) return;
       setLibrary((ls) => {
         const have = new Set(ls.map((l) => l.id));
-        return [...ls, ...rows.filter((r: any) => !have.has(String(r.id))).map((r: any) => toLora(r, true))];
+        return [...ls, ...rows.filter((r: any) => !have.has(String(r.id))).map((r: any) => toLora(tagCustomEntry(r), true))];
       });
     });
     return () => {
@@ -196,6 +232,33 @@ function Console() {
     abort.current = ac;
     const started = Date.now();
     const submitParams = buildSubmitParams(prompt, params, (schema as any)?.raw);
+    // Ad-hoc LoRA (this run only, never saved): convert via insertFormat so
+    // the value matches the dialog's Copy-value path (a plain URL string for
+    // Replicate — never the {path, scale} objects WaveSpeed takes), then merge
+    // into the run input. Array slots (extra_lora_weights) append; single-URL
+    // slots (extra_lora, lora_url, lora_weights, replicate_weights) fill the
+    // first empty one so explicit values are never clobbered. Skipped when the
+    // model has no adapter field or every slot is already filled.
+    const adhocRaw = adhocLora.trim();
+    if (adhocRaw) {
+      const entry = adhocEntryForInput(adhocRaw);
+      const fmt = entry ? insertFormat(APP_ID, entry) : null;
+      // Never inject the UNKNOWN.safetensors placeholder Copy-value returns
+      // for an unresolvable id — pass the raw text through instead so the
+      // payload shows exactly what was typed.
+      const value = fmt && !/UNKNOWN\.safetensors/i.test(fmt.value) ? fmt.value : adhocRaw;
+      const isLoraKey = (k: string) => /lora|adapter/i.test(k) && !/scale|strength|multiplier/i.test(k);
+      let key: string | null = Object.keys(submitParams).find((k) => isLoraKey(k) && Array.isArray((submitParams as any)[k])) || null;
+      if (!key && schema) {
+        const found = Object.keys(schema.params || {}).find((k) => isLoraKey(k) && (submitParams as any)[k] === undefined);
+        if (found) key = found;
+      }
+      if (key) {
+        const cur = (submitParams as any)[key];
+        if (Array.isArray(cur)) (submitParams as any)[key] = [...cur, value];
+        else if (cur === undefined) (submitParams as any)[key] = value;
+      }
+    }
     const kind = model.group === "video" ? "video" : "image";
 
     const cost = 0;
@@ -253,7 +316,7 @@ function Console() {
         toast("Generation failed", "error", (e as Error).message);
       }
     }
-  }, [model, prompt, params, job?.status, mid, setRuns, toast]);
+  }, [model, prompt, params, adhocLora, schema, job?.status, mid, setRuns, toast]);
 
   const onEnhanced = useCallback((_text: string, historyId: number | null) => setEnhancementId(historyId), []);
 
@@ -264,9 +327,11 @@ function Console() {
 
   const addCustom = useCallback(
     async (l: Lora) => {
-      setLibrary((ls) => [l, ...ls.filter((x) => x.id !== l.id)]);
+      const taggedEntry = tagCustomEntry({ ...(l.entry || {}), name: l.name, id: l.id });
+      const tagged: Lora = { ...l, entry: taggedEntry };
+      setLibrary((ls) => [tagged, ...ls.filter((x) => x.id !== tagged.id)]);
       try {
-        await saveCustomLora(l.entry || { repo: l.repo, name: l.name });
+        await saveCustomLora(tagged.entry || { repo: tagged.repo, name: tagged.name });
       } catch (e) {
         toast("Saved locally, but the server rejected it", "error", (e as Error).message);
       }
@@ -346,6 +411,8 @@ function Console() {
       onEnhanced={onEnhanced}
       job={job}
       onBrowseModels={focusCatalogSearch}
+      adhocLora={adhocLora}
+      setAdhocLora={setAdhocLora}
     />
   );
 
