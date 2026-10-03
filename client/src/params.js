@@ -32,7 +32,7 @@ export function isLoraParam(name, spec = {}) {
 }
 
 export function loraHintText() {
-  return 'huggingface.co/owner/repo, a direct ….safetensors URL, civitai.com/…, Replicate owner/name, or a training .tar\nArray fields take one entry per line\nNever upload a .safetensors file here — paste a URL';
+  return 'Verified against live runs on d33pstatetech-stack/aznten_replicate:\n  WORKS  a direct https://...safetensors URL\n  WORKS  a Replicate owner/name or a training .tar\n  FAILS  a HuggingFace owner/repo - Replicate tries to fetch it from\n         replicate.com/OWNER/NAME instead and the tarball download fails\n  FAILS  civitai.com/... on these endpoints\n  huggingface.co/owner/repo without https:// is also rejected\n  Array fields take one entry per line\n  Never upload a .safetensors file here - paste a URL';
 }
 
 export function sizeHintText() {

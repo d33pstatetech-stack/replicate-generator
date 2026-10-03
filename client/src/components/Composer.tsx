@@ -58,7 +58,6 @@ export default function Composer({
      route, so there is no real number to show. Cost stays 0 and the button says
      so rather than inventing a figure. */
   const cost = 0;
-  const costStale = false;
 
   async function enhance() {
     if (!prompt.trim()) {
@@ -375,7 +374,9 @@ export default function Composer({
             Generate
             {model && (
               <span className="tnum rounded-md bg-black/25 px-2 py-1 text-fine font-semibold">
-                {costStale ? "…" : `≈ $${cost.toFixed(3)}`}
+                {/* Replicate publishes no per-model pricing, so there is no figure
+                    to show. Saying "Free" is honest; "$0.000" implies a real one. */}
+                {cost > 0 ? `≈ $${cost.toFixed(3)}` : "Free"}
               </span>
             )}
           </button>
