@@ -43,7 +43,12 @@ bucket_name = "genai-assets"
 #      page instead of the weights and the prediction hangs at "starting".
 #   2. The URL must contain /resolve/main/<file>. The bare owner/repo form
 #      carries no filename, so it is deliberately NOT rewritten.
-HF_PROXY_REPO_ALLOWLIST = ""
+# Mirrors the muapi setting. Replicate's servers cannot fetch a private or gated
+# HuggingFace repo either, so the same proxy applies. Verified 2026-10-03: every
+# repo currently in the library, including Sentinel7/qwen-image, is readable
+# anonymously, so these entries are insurance rather than a requirement - but they
+# also keep the path working if a repo is ever made private.
+HF_PROXY_REPO_ALLOWLIST = "D33pStateTech/*,Sentinel7/*"
 # Canonical origin to advertise when rewriting HuggingFace URLs to the proxy.
 # Leave empty to use the incoming request origin.
 HF_PROXY_BASE_URL = ""
