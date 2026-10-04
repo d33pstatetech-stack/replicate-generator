@@ -393,4 +393,7 @@ export const NSFW_LORAS = [
 export const VERIFIED_LORA_RUNS = [
   { lora: "D33pStateTech/d33pstateten", model: "krea-v2-turbo-lora", job: "840e36f8-d765-4966-8e9b-6f8dc4808053", when: "2026-09-20" },
   { lora: "D33pStateTech/aznten-Qwen-Image-2512-Lora-WaveSpeed-AI", model: "qwen-image-text-to-image-2512-lora", job: "4984353a-0796-4af1-84f9-00451b6f086c", when: "2026-09-19" },
+  { lora: "D33pStateTech/aznten-flux-schnell-mimicpc", model: "d33pstatetech-stack/aznten_replicate", job: "24y7pbccssrmw0d10gravv0r80", when: "2026-10-04" },
+  { lora: "Wuli-art/Qwen-Image-2512-Turbo-LoRA", model: "qwen/qwen-image", job: "rgwc236cvxrmw0d10grb6xw3sm", when: "2026-10-04" },
+  { lora: "jasbloom/Wan2.1-I2V-14B-720P-Diffusers-mmxxii-rank256-lora", model: "wan-video/wan2.1-with-lora", job: "c5tb429ygnrnt0d10grt5n2e2g", when: "2026-10-04" },
 ];
