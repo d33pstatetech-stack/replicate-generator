@@ -7,6 +7,21 @@
 //     version gap (wan 2.x vs 3.x). Hidden unless the picker’s show-all is on.
 import { VERIFIED_LORA_RUNS } from './loras-data.js';
 
+// Central verification override (Phase A read-only, additive). Pairs installed
+// from GET /api/loras/verifications in App.tsx (replicate-app rows only).
+// Null/absent or empty means "no central data" — compatibility() falls back
+// to the baked VERIFIED_LORA_RUNS below, so behavior is identical when central
+// is unavailable.
+/** @type {Set<string> | null} `model|lora` keys */
+let centralVerified = null;
+
+/** Install central verified pairs (`null` clears back to baked-only). */
+export function setCentralVerified(pairs) {
+  if (pairs == null) centralVerified = null;
+  else if (Array.isArray(pairs)) centralVerified = new Set(pairs.filter((p) => p && p.lora && p.model).map((p) => `${p.model}|${p.lora}`));
+  else centralVerified = null;
+}
+
 export function loraFamily(l) {
   const b = String(l?.base_model || '');
   if (/flux/i.test(b)) return 'FLUX.1';
@@ -64,6 +79,10 @@ export function filterLoras(list, model, modelId) {
 export function compatibility(lora, model, modelId) {
   if (!lora) return 'no';
   const lid = String(lora.id || '');
+  // Central verifications first; baked VERIFIED_LORA_RUNS remains as fallback.
+  if (modelId && centralVerified && centralVerified.size > 0 && centralVerified.has(`${modelId}|${lid}`)) {
+    return 'verified';
+  }
   if (modelId && (VERIFIED_LORA_RUNS || []).some((v) => v.lora === lid && v.model === modelId)) {
     return 'verified';
   }

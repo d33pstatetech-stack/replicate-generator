@@ -304,6 +304,24 @@ export async function deleteCustomLora(id) {
   return data;
 }
 
+// ─── Central LoRA repository (Phase A read-only) ───
+// Shared HISTORY tables; pre-migration DBs return {loras:[]} /
+// {verifications:[]} (200, never 500), so an empty array means
+// "no central data" and callers fall back to the baked seed.
+export async function fetchLoraLibrary() {
+  const res = await fetch(`${API}/api/loras/library`);
+  const data = await json(res);
+  if (!res.ok) throw new Error(errText(data.error, `Library failed (${res.status})`));
+  return Array.isArray(data.loras) ? data.loras : [];
+}
+
+export async function fetchLoraVerifications() {
+  const res = await fetch(`${API}/api/loras/verifications`);
+  const data = await json(res);
+  if (!res.ok) throw new Error(errText(data.error, `Verifications failed (${res.status})`));
+  return Array.isArray(data.verifications) ? data.verifications : [];
+}
+
 // Jev structured-judgment pilot: verifier gate for enhancements (log-only).
 export const APP_NAME = 'replicate';
 

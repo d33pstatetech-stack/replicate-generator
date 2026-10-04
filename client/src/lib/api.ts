@@ -17,6 +17,8 @@ import {
   fetchCustomLoras as apiCustomLoras,
   saveCustomLora as apiSaveCustomLora,
   deleteCustomLora as apiDeleteCustomLora,
+  fetchLoraLibrary as apiLoraLibrary,
+  fetchLoraVerifications as apiLoraVerifications,
 } from '../api';
 import { getModel, schemaDefaults } from '../models';
 import { applySchema, toModel } from './models';
@@ -162,6 +164,25 @@ export async function fetchCustomLoras(): Promise<any[]> {
     return await apiCustomLoras();
   } catch {
     return [];
+  }
+}
+
+/* ---------------- Central LoRA repository (Phase A read-only) ----------------
+   Fail-soft by design: any failure returns null so callers keep the baked
+   seed (offline / old-DB safety). Only a non-empty array replaces the seed. */
+export async function fetchLibrary(): Promise<any[] | null> {
+  try {
+    return await apiLoraLibrary();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchVerifications(): Promise<any[] | null> {
+  try {
+    return await apiLoraVerifications();
+  } catch {
+    return null;
   }
 }
 

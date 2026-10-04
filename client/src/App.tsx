@@ -11,8 +11,10 @@ import {
   deleteCustomLora as apiDeleteCustom,
   estimateCost,
   fetchCustomLoras,
+  fetchLibrary,
   fetchModels,
   fetchSchema,
+  fetchVerifications,
   runGeneration,
   saveCustomLora,
   toLora,
@@ -20,7 +22,9 @@ import {
 } from "./lib/api";
 import { tierFor } from "./lib/tiers";
 import type { App } from "./lib/loraFormats";
-import { insertFormat } from "./lib/loraFormats";
+import { insertFormat, setCentralConfirmed } from "./lib/loraFormats";
+import { setCentralVerified } from "./lora-compat";
+import { centralConfirmedKeys, centralVerifiedPairs, mapCentralRow } from "./lib/centralLoras";
 import { useMediaQuery, usePersistentState } from "./lib/hooks";
 import { USER_LORAS, NSFW_LORAS, isAzntenLora } from "./loras-data";
 import { buildSubmitParams } from "./params";
@@ -137,6 +141,47 @@ function Console() {
         const have = new Set(ls.map((l) => l.id));
         return [...ls, ...rows.filter((r: any) => !have.has(String(r.id))).map((r: any) => toLora(tagCustomEntry(r), true))];
       });
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  /* ---------------- central LoRA library (Phase A read-only) ----------------
+     Replaces the baked USER_LORAS/NSFW_LORAS seed only when the fetch returns
+     a non-empty array; offline / old-DB (null or []) keeps the baked seed.
+     Central rows are mapped to the exact seed-entry shape (group_name drives
+     isAznten; customs keep the regex path via tagCustomEntry). Customs already
+     in state survive the swap and keep merging on top unchanged. */
+  useEffect(() => {
+    let live = true;
+    fetchLibrary().then((rows) => {
+      if (!live || !rows || !rows.length) return;
+      const central = rows.map(mapCentralRow).map((e: any) => toLora(e));
+      setLibrary((ls) => {
+        const customs = ls.filter((l) => l.custom);
+        const customIds = new Set(customs.map((l) => l.id));
+        const base = central.filter((l) => !customIds.has(l.id));
+        return [...base, ...customs];
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  /* ---------------- central verifications → confirmed/verified badges --------
+     Central (lora_id+model_id+app==='replicate') first; empty/absent keeps the
+     baked CONFIRMED_LORA_RUNS/VERIFIED_LORA_RUNS. Additive only — no
+     format/compat logic changes. */
+  useEffect(() => {
+    let live = true;
+    fetchVerifications().then((rows) => {
+      if (!live || !rows || !rows.length) return;
+      const keys = centralConfirmedKeys(rows, APP_ID);
+      if (!keys.length) return; // no rows for this app → keep baked
+      setCentralConfirmed(keys);
+      setCentralVerified(centralVerifiedPairs(rows, APP_ID));
     });
     return () => {
       live = false;

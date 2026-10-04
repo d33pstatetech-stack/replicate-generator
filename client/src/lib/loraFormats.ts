@@ -105,6 +105,21 @@ function appName(app: App) {
 }
 
 /* ------------------------------------------------------------------
+   Central verification override (Phase A read-only, additive).
+   Set from GET /api/loras/verifications in App.tsx. Keys are
+   `${app}|${model_id}|${lora_id}` (see lib/centralLoras). Null/absent or
+   empty means "no central data" — isConfirmed() falls back to the baked
+   CONFIRMED_LORA_RUNS below, so behavior is identical when central is
+   unavailable.
+   ------------------------------------------------------------------ */
+let centralConfirmed: Set<string> | null = null;
+
+/** Install central confirmed keys (`null` clears back to baked-only). */
+export function setCentralConfirmed(keys: string[] | null): void {
+  centralConfirmed = keys == null ? null : new Set(keys);
+}
+
+/* ------------------------------------------------------------------
    Pairs confirmed by a real completed generation. Keyed model -> LoRA
    identifiers. The catalogue badge and the compatibility tier both read
    this, so a green tick always means "this exact pair produced an image",
@@ -185,6 +200,19 @@ export const CONFIRMED_LORA_RUNS: { model: string; loras: string[]; apps: App[] 
 /** True when this exact model + LoRA pair has produced a real image. */
 export function isConfirmed(app: App, modelId: string | null | undefined, loraId: string): boolean {
   if (!modelId) return false;
+  // Central verifications first (additive override; absent/empty === baked-only,
+  // so behavior is identical when central is unavailable). Baked rows remain as
+  // fallback even when central is present, so pre-central pairs keep badges.
+  if (centralConfirmed && centralConfirmed.size > 0) {
+    if (centralConfirmed.has(`${app}|${modelId}|${loraId}`)) return true;
+    // CivitAI entries are stored under either the id or the resolved URL.
+    if (/^civitai:/.test(loraId)) {
+      const n = loraId.replace(/^civitai:/, '');
+      for (const k of centralConfirmed) {
+        if (k.startsWith(`${app}|${modelId}|`) && k.includes(n)) return true;
+      }
+    }
+  }
   for (const row of CONFIRMED_LORA_RUNS) {
     if (row.model !== modelId) continue;
     if (!row.apps.includes(app)) continue;
