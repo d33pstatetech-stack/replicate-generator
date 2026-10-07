@@ -6,7 +6,9 @@
  * server-side. Nothing here is simulated.
  */
 import {
-  fetchModels as fetchStaticModels,
+  fetchModels as fetchCatalogModels,
+  fetchModel as fetchCatalogModel,
+  fetchModelSchema as fetchCatalogSchema,
   fetchModelStats,
   streamEnhance as postEnhance,
   submitGenerate,
@@ -20,7 +22,7 @@ import {
   fetchLoraLibrary as apiLoraLibrary,
   fetchLoraVerifications as apiLoraVerifications,
 } from '../api';
-import { getModel, schemaDefaults } from '../models';
+import { schemaDefaults } from '../models';
 import { applySchema, toModel } from './models';
 import type { Lora, Model, ModelSchema, ParamSpec } from './types';
 
@@ -41,11 +43,18 @@ const errText = (v: any, fallback = ''): string => {
  * and a bare array are accepted.
  */
 export async function fetchModels(): Promise<{ models: Model[]; statsFailed: boolean }> {
-  const entries: any[] = await fetchStaticModels();
+  // Real catalogue from D1. A failure here is survivable — api.js falls back
+  // to the bundled seed — so the console still opens with something usable.
+  let entries: any[];
+  try {
+    entries = await fetchCatalogModels();
+  } catch {
+    entries = [];
+  }
   let stats: Stats | undefined;
   let statsFailed = false;
   try {
-    const list: any[] = await fetchModelStats(200);
+    const list: any[] = await fetchModelStats(400);
     stats = new Map(
       list.filter((r) => r && r.model).map((r) => [r.model, { runs: Number(r.runs) || 0, rating: r.avg_rating == null ? null : Number(r.avg_rating) }]),
     );
@@ -61,9 +70,24 @@ export async function fetchModels(): Promise<{ models: Model[]; statsFailed: boo
  * other two apps use, so they are converted here rather than in the components.
  */
 export async function fetchSchema(id: string): Promise<ModelSchema> {
-  const m = getModel(id);
-  if (!m) throw new Error(`Unknown model: ${id}`);
-  const raw: any = m.schema;
+  // Prefer the harvested OpenAPI input schema from D1, which is what Replicate
+  // itself serves, and fall back to the hand-written schema for the legacy
+  // seed entries. A model with neither renders an empty param form rather
+  // than failing, because the schema is advisory here — the Worker proxies the
+  // real prediction and Replicate rejects invalid inputs itself.
+  let raw: any = null;
+  try {
+    raw = await fetchCatalogSchema(id);
+  } catch {
+    raw = null;
+  }
+  if (!raw) {
+    try {
+      raw = (await fetchCatalogModel(id))?.schema ?? null;
+    } catch {
+      raw = null;
+    }
+  }
   if (!raw) return { params: {}, defaults: {} };
   const params: Record<string, ParamSpec> = raw.properties || {};
   return { params, defaults: schemaDefaults(raw) as Record<string, unknown>, raw };

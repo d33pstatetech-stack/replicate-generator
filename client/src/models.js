@@ -319,11 +319,19 @@ export function schemaDefaults(schema) {
 // otherwise the version pin (body {version, input}) or model alias ({model, input}).
 export function submitRoute(model) {
   if (!model) return { path: '/api/replicate/predictions', body: (input) => ({ input }) };
-  if (model.official) {
+  // D1 rows use snake_case (is_official, version_id); the bundled seed uses
+  // camelCase (official, version). Accept both so this function works for a
+  // harvested row and a legacy one.
+  const isOfficial = model.official ?? (model.is_official === 1 || model.is_official === true);
+  if (isOfficial) {
+    // Official models run latest via the model endpoint — no version pin.
     return { path: `/api/replicate/models/${model.id}/predictions`, body: (input) => ({ input }) };
   }
-  if (model.version && model.version.includes(':')) {
-    return { path: '/api/replicate/predictions', body: (input) => ({ version: model.version, input }) };
+  // version_id from D1 is a bare 64-char hash, so it has to be joined to the
+  // model id; the bundled seed already stores "owner/name:version".
+  const rawVersion = model.version ?? (model.version_id ? `${model.id}:${model.version_id}` : null);
+  if (rawVersion && rawVersion.includes(':')) {
+    return { path: '/api/replicate/predictions', body: (input) => ({ version: rawVersion, input }) };
   }
   return { path: '/api/replicate/predictions', body: (input) => ({ model: model.id, input }) };
 }

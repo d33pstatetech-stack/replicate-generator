@@ -35,17 +35,45 @@ export function errText(v, fallback = '') {
   return String(v);
 }
 
-// ─── Static catalog (no backend endpoint) ───
-// Async wrappers preserve a uniform component call-shape; the catalog ones
-// never touch the network (static import).
+// ─── Catalogue (D1, harvested from the Replicate API) ───
+// Served by GET /api/models rather than a bundled list, so the console covers
+// Replicate's real catalogue instead of a hand-curated subset. Fails soft to
+// the bundled seed in models.js so a database problem degrades to "small
+// catalogue" rather than an empty console.
 export async function fetchModels() {
-  return MODELS;
+  const res = await fetch(`${API}/api/models?limit=1200`);
+  const data = await json(res);
+  if (!res.ok) throw new Error(errText(data.error, `Models failed (${res.status})`));
+  const rows = Array.isArray(data) ? data : data.models;
+  return Array.isArray(rows) && rows.length ? rows : MODELS;
 }
 
+/** One model's row. Falls back to the bundled seed for ids not in D1. */
 export async function fetchModel(id) {
+  try {
+    const res = await fetch(`${API}/api/models?q=${encodeURIComponent(id)}&limit=5`);
+    const data = await json(res);
+    if (res.ok) {
+      const rows = Array.isArray(data) ? data : data.models;
+      const hit = (rows || []).find((m) => m.id === id);
+      if (hit) return hit;
+    }
+  } catch { /* fall through to the bundled seed */ }
   const m = getModel(id);
   if (!m) throw new Error(`Unknown model: ${id}`);
-  return m; // { id, name, group, group_of, category, version, official?, description, schema }
+  return m;
+}
+
+/** Real input schema from D1. Null when Replicate publishes none. */
+export async function fetchModelSchema(id) {
+  try {
+    const res = await fetch(`${API}/api/models/schema?id=${encodeURIComponent(id)}`);
+    const data = await json(res);
+    if (!res.ok) return null;
+    return (data && data.schema) || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchHealth() {
@@ -54,7 +82,10 @@ export async function fetchHealth() {
 }
 
 export async function submitGenerate({ modelId, params, enhancementId }) {
-  const model = getModel(modelId);
+  // Resolve through fetchModel (D1 first, bundled seed second) rather than
+  // getModel, or every model that exists only in the harvested catalogue
+  // would throw "Unknown model" the moment it was selected.
+  const model = await fetchModel(modelId);
   if (!model) throw new Error(`Unknown model: ${modelId}`);
   const route = submitRoute(model);
   const res = await fetch(`${API}${route.path}`, {

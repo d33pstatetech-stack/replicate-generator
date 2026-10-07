@@ -9,3 +9,10 @@ client/dist/
 __pycache__/
 *.pyc
 NUL
+
+# Generated catalogue artifacts: rebuild with
+#   node scripts/fetch-replicate-catalog.mjs
+# The seed chunks are ~3.5MB of generated SQL and are applied to D1 directly;
+# keeping them out of git avoids a large, machine-specific diff. The JSON is
+# also generated and is not a build input.
+catalog/

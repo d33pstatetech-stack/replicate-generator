@@ -298,7 +298,54 @@ export default {
 async function handleApiRoute(request, env, path, ctx) {
   const { DB, REPLICATE_API_TOKEN } = env;
 
-  // â”€â”€â”€ GET /api/llm-config â”€â”€â”€
+  // ─── GET /api/models — the harvested Replicate catalogue ───
+  // Reads D1 rather than a bundled list. Schemas live in a separate table and
+  // are deliberately NOT selected here: they average several KB, and this
+  // query runs over ~1100 rows on catalogue load.
+  if (path === '/api/models' && request.method === 'GET') {
+    const url = new URL(request.url);
+    const groupOf = url.searchParams.get('group_of');
+    const search = url.searchParams.get('q');
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '1200', 10), 2000);
+    let query = `SELECT id, name, description, category, family, group_of, cost, dynamic_pricing,
+                        endpoint, playground_url, run_count, is_official, version_id
+                 FROM models WHERE is_active = 1 AND provider = 'replicate'`;
+    const params = [];
+    if (groupOf) { query += ' AND group_of = ?'; params.push(groupOf); }
+    if (search) {
+      query += ' AND (name LIKE ? OR description LIKE ? OR family LIKE ?)';
+      const s = `%${search}%`;
+      params.push(s, s, s);
+    }
+    // Most-run first, so the catalogue opens on genuinely popular models
+    // rather than alphabetical noise.
+    query += ' ORDER BY run_count DESC, name ASC LIMIT ?';
+    params.push(limit);
+    try {
+      const { results } = await DB.prepare(query).bind(...params).all();
+      return jsonResponse({ models: results || [], total: results ? results.length : 0 });
+    } catch (e) {
+      return jsonResponse({ error: 'Catalogue unavailable: ' + (e && e.message ? e.message : 'unknown') }, 500);
+    }
+  }
+
+  // ─── GET /api/models/schema?id=owner/name — one model's input schema ───
+  // Split out from the catalogue list because schemas are large and only the
+  // selected model needs one.
+  if (path === '/api/models/schema' && request.method === 'GET') {
+    const id = new URL(request.url).searchParams.get('id') || '';
+    if (!id) return jsonResponse({ error: 'id is required' }, 400);
+    try {
+      const row = await DB.prepare('SELECT schema_json FROM replicate_model_schemas WHERE model_id = ?')
+        .bind(id.split(':')[0]).first();
+      if (!row || !row.schema_json) return jsonResponse({ schema: null });
+      return jsonResponse({ schema: JSON.parse(row.schema_json) });
+    } catch (e) {
+      return jsonResponse({ error: 'Schema lookup failed: ' + (e && e.message ? e.message : 'unknown') }, 500);
+    }
+  }
+
+  // ─── GET /api/llm-config ───
   if (path === '/api/llm-config' && request.method === 'GET') {
     const cfg = await getLLMConfigWorker(env);
     return jsonResponse({ config: redactLLMConfig(cfg) });
