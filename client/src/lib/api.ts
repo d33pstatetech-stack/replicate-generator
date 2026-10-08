@@ -113,7 +113,12 @@ export async function streamEnhance(
   signal?: AbortSignal,
   params: Record<string, unknown> = {},
 ): Promise<{ text: string; providerUsed: string; modelUsed: string; historyId: number | null }> {
-  return postEnhance({ rawPrompt, modelId: model?.id || '', params, signal, onToken, onMeta: () => {} } as any);
+  // Send the selected model's own group as `modality`. Model.group comes from
+  // D1 group_of via normalizeGroup(), so this is the catalogue's answer rather
+  // than a guess — and it stops the Worker deriving image-vs-video from an id
+  // regex when the row already knows.
+  const modality = model?.group === 'image' || model?.group === 'video' ? model.group : undefined;
+  return postEnhance({ rawPrompt, modelId: model?.id || '', params, modality, signal, onToken, onMeta: () => {} } as any);
 }
 
 export interface SubmitResult {

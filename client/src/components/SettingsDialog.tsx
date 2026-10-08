@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Icon from "../ui/Icon";
-import { Badge, Dialog } from "../ui/primitives";
+import { Badge, Dialog, Tip } from "../ui/primitives";
 import { useToast } from "../ui/Toasts";
 import useLlmConfig from "../hooks/useLlmConfig";
 import { MODEL_PRESETS } from "../enhancer";
@@ -151,6 +151,22 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
                       <option key={k} value={k} />
                     ))}
                   </datalist>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-micro text-t3">
+                    Key env var
+                    <Tip
+                      text="Name of the Worker secret holding this provider's key. Used when the API key below is blank. Without it the Worker falls back to a legacy venice.ai URL check, which sends the wrong key to every other host."
+                      label="What is this?"
+                    />
+                  </span>
+                  <input
+                    type="text"
+                    value={p.apiKeyEnv ?? ""}
+                    onChange={(e) => patch(i, { apiKeyEnv: e.target.value })}
+                    placeholder="e.g. EXPLABS_API_KEY"
+                    className="field font-mono"
+                  />
                 </label>
                 <label className="grid gap-1">
                   <span className="text-micro text-t3">API key</span>

@@ -5,7 +5,7 @@
  * Routes:
  *   GET  /api/llm-config          â†’ get LLM chain (redacted)
  *   PUT  /api/llm-config          â†’ save chain
- *   POST /api/enhance             â†’ enhancer streaming (Venice primary)
+ *   POST /api/enhance             â†’ enhancer streaming (explabs → openrouter → venice)
  *   POST /api/optimize            â†’ enhancer JSON alias (same logic)
  *   GET  /api/prompts             â†’ list saved enhanced prompts
  *   GET  /api/health              â†’ health
@@ -28,10 +28,20 @@
 // only '/api/lora', which left the shared custom-LoRA library unwrapped.
 const PROTECTED_API_PREFIXES = ['/api/enhance', '/api/optimize', '/api/prompts', '/api/llm-config', '/api/replicate', '/api/cloud', '/api/history', '/api/lora', '/api/loras', '/api/judge']; // fail-closed without Cloudflare Access headers (defense-in-depth; edge Access app is the primary gate)
 
+// Array order IS the priority mechanism: the enhance loop tries providers in
+// order and stops at the first success. So the newest provider goes FIRST.
+//
+// `apiKeyEnv` names the Worker secret / var that holds this provider's key.
+// It is the generalising fix for the old `baseUrl.includes('venice.ai')` sniff,
+// which authenticated any host that was not literally venice.ai with the
+// OpenRouter key - correct for two providers by accident, wrong for a third.
+// Stored `llm_config` rows written before this field existed still work: the
+// resolver falls back to the old sniff only when `apiKeyEnv` is absent.
 const DEFAULT_LLM_PROVIDERS = [
-  { baseUrl: 'https://openrouter.ai/api/v1', model: 'liquid/lfm-2.5-2.6b:free', apiKey: '' },
-  { baseUrl: 'https://openrouter.ai/api/v1', model: 'openrouter/free', apiKey: '' },
-  { baseUrl: 'https://api.venice.ai/api/v1', model: 'venice-uncensored', apiKey: '' },
+  { provider: 'explabs', apiKeyEnv: 'EXPLABS_API_KEY', baseUrl: 'https://api.experientiallabs.ai/v1', model: 'glm-5.3-flash-abliterated', apiKey: '' },
+  { provider: 'openrouter', apiKeyEnv: 'OPENROUTER_API_KEY', baseUrl: 'https://openrouter.ai/api/v1', model: 'liquid/lfm-2.5-2.6b:free', apiKey: '' },
+  { provider: 'openrouter', apiKeyEnv: 'OPENROUTER_API_KEY', baseUrl: 'https://openrouter.ai/api/v1', model: 'openrouter/free', apiKey: '' },
+  { provider: 'venice', apiKeyEnv: 'VENICE_API_KEY', baseUrl: 'https://api.venice.ai/api/v1', model: 'venice-uncensored', apiKey: '' },
 ];
 const MODEL_PRESETS = {
   seedance: `Seedance models: Convert to screenplay format with [Shot Type] + [Subject] + [Action] + temporal transitions + [Lighting] + [Audio cues]. Use @image1..@image9 for omni_reference when images are provided. Duration 4-15s, aspect 21:9/16:9/4:3/1:1/3:4/9:16.`,
@@ -40,21 +50,171 @@ const MODEL_PRESETS = {
   kling: `Kling/Luma models: Natural language + key motion descriptors (dolly, pan, orbital), keep concise.`,
   default: ``,
 };
-const ENHANCER_TEMPLATE = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. This should include determining the optimal prompt length, or at least the ideal minimum and maximum word counts, determining whether the model excels with keyword based prompts or full narrative descriptions, what types of prompts work best (describe everything vs just describe movement, etc), whether it accepts timestamp direction (at 00:05, do this, at 00:10 do that, etc) and if it does add these timestamp directions based on the total length of the video (as input by the user) and estimating the time it would take for the described actions in the scene to take place, determine if a certain camera lens or videography style works well if called out for the specific model, translate any vague camera movement directions into videographer jargon (dolly out, orbital, chase cam, etc).  The video will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model.  \nif [Model] includes audio generation, insert appropriate sound effect cues and format any dialogue into the most AI friendly format.`;
+/* ------------------------------------------------------------------
+   Modality-aware enhancer templates.
+
+   Two separate templates, chosen from the target model's modality. One
+   template cannot serve both: a single template with only a
+   "[Media Generation Type]" slot produced video-shaped prompts for image
+   models, because the rest of the prose still asked for timestamp
+   directions, camera-movement jargon and duration budgets. Slot substitution
+   cannot fix that - the guidance itself has to differ.
+
+   The image template carries an explicit negative instruction so the model
+   does not "helpfully" reintroduce the vocabulary it was just told not to use.
+   Both templates end with the same `[audio clause]` sentinel on its own line,
+   so buildEnhancerSystemPrompt strips or expands it identically in both
+   branches instead of pattern-matching each template's prose separately.
+   ------------------------------------------------------------------ */
+const ENHANCER_TEMPLATE_IMAGE = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. Decide the optimal length for this model (or at least a sensible minimum and maximum word count) and whether it excels with keyword/tag prompts or with full narrative description. Write it as a STILL IMAGE: describe the subject and its appearance, the composition and framing, the lens or perspective, the lighting, the colour palette, the medium and style. Order the description subject first, then scene and background, then style and technical tags.
+STRICT - this is one frozen frame. Do NOT output timestamps or timecodes (no "at 00:05", no "0s-3s"). Do NOT describe camera movement (dolly, pan, tilt, orbit, crane, tracking, handheld, push in, pull out). Do NOT reference duration, frame count, cuts, shot lists or any sequence. Do NOT use motion verbs that imply a timeline. Where the raw prompt contains movement or timing, convert it into the static pose, expression, framing and lighting that capture the same idea in a single image.
+The image will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model).
+[audio clause]`;
+
+// Video guidance is unchanged in substance from the original single template:
+// timestamp directions, camera-movement jargon and duration budgets are exactly
+// right here.
+const ENHANCER_TEMPLATE_VIDEO = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. This should include determining the optimal prompt length, or at least the ideal minimum and maximum word counts, determining whether the model excels with keyword based prompts or full narrative descriptions, what types of prompts work best (describe everything vs just describe movement, etc), whether it accepts timestamp direction (at 00:05, do this, at 00:10 do that, etc) and if it does add these timestamp directions based on the total length of the video (as input by the user) and estimating the time it would take for the described actions in the scene to take place, determine if a certain camera lens or videography style works well if called out for the specific model, translate any vague camera movement directions into videographer jargon (dolly out, orbital, chase cam, etc). The video will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model).
+[audio clause]`;
 
 function hasDialogueCues(s) {
   return /["\u201c\u201d].*["\u201c\u201d]|dialogue|says\s+["\u201c]|speaking|voice:/i.test(s);
 }
-function deriveMediaTypeWorker(model) {
-  if (!model) return 'text-to-video';
+
+// True for anything in the video family. Kept as one predicate so the template
+// choice, the duration gate and the client mirrors cannot disagree.
+function isVideoMediaType(mediaType) {
+  return /video/i.test(String(mediaType || ''));
+}
+
+/* ------------------------------------------------------------------
+   Modality derivation.
+
+   Three stages, most trustworthy first:
+     1. group_of  - populated by migrations/0002_replicate_catalog.sql from
+                    Replicate's own collections. Authoritative, and the
+                    reason this is not a pure regex any more.
+     2. category  - Replicate's category string ("Text to Image",
+                    "Image to Video", ...).
+     3. id regex  - a ladder over model/family names, used only when 1 and 2
+                    are absent (a model typed by hand, or a row with no
+                    group_of).
+
+   The previous implementation returned 'text-to-video' from three separate
+   lines including its final fallback, so every Replicate image model
+   (black-forest-labs/flux-dev, stability-ai/sdxl, ...) was reported to the
+   LLM as a video model and came back with timestamps and camera moves.
+
+   The ladder's fallback is 'image', not 'video': telling a video model to
+   skip timestamps costs some polish, while telling an image model to add
+   them produces a prompt the model cannot honour.
+   ------------------------------------------------------------------ */
+function deriveModalityWorker(model) {
+  if (!model) return 'image';
   const id = (model.id || model || '').toString().toLowerCase();
-  if (id.includes('reference-to-video')) return 'reference-to-video';
-  if (id.includes('image-to-video') || id.includes('-i2v') || id.includes('i2v')) return 'image-to-video';
-  if (id.includes('text-to-video') || id.includes('-t2v')) return 'text-to-video';
-  if (id.includes('image-to-image') || id.includes('-i2i')) return 'image-to-image';
-  if (id.includes('wan') || id.includes('alibaba/wan')) return 'text-to-video';
-  if (id.includes('seedance')) return 'text-to-video';
-  return 'text-to-video';
+  const cat = String(model.category || '').toLowerCase();
+  const group = String(model.group_of || model.group || '').toLowerCase();
+
+  if (group === 'video' || group === 'image' || group === 'audio' || group === '3d' || group === 'text') return group;
+  if (/\b(audio|speech|tts|voice|music|song|whisper|transcri\w*)\b/.test(cat)) return 'audio';
+  if (/\b(3d|three-?d|mesh|voxel)\b/.test(cat)) return '3d';
+  if (/image[-_. ]?to[-_. ]?video|video[-_. ]?to[-_. ]?video|text[-_. ]?to[-_. ]?video|reference[-_. ]?to[-_. ]?video|\bvideo\b/.test(cat)) return 'video';
+  if (/image[-_. ]?to[-_. ]?image|text[-_. ]?to[-_. ]?image|\bimage\b/.test(cat)) return 'image';
+  // Explicit flow tokens before family names: "wan-2.7-image-pro" is an image
+  // model whose OWNER is "wan-video", so an id-only guess gets it wrong - but
+  // group_of (checked above) already settles that case in production.
+  if (/image[-_. ]?to[-_. ]?image|\bi2i\b/.test(id)) return 'image';
+  if (/(reference|image|text|video)[-_. ]?to[-_. ]?video|\b(i2v|t2v|v2v)\b/.test(id)) return 'video';
+  if (/image[-_. ]?to[-_. ]?image|text[-_. ]?to[-_. ]?image|\b(i2i|t2i)\b/.test(id)) return 'image';
+  if (/\b(wan|hunyuan|ltx|kling|mochi|cogvideo|svd|animatediff|seedance|veo|hailuo|minimax|framepack|skyreels)\b/.test(id)) return 'video';
+  if (/\b(flux|sdxl|stable[-_. ]?diffusion|qwen[-_. ]?image|z[-_. ]?image|krea|ideogram|recraft|hidream|dall|playground|photomaker|shuttle|juggernaut|lumina|kolors)\b/.test(id)) return 'image';
+  if (/\b(audio|speech|tts|voice|music|song|whisper|mmaudio)\b/.test(id)) return 'audio';
+  if (/\b(triposr|shap-e|trellis|3d)\b/.test(id)) return '3d';
+  return 'image';
+}
+
+// Coarse modality -> the specific generation-flow token the LLM is told about.
+function deriveFlowWorker(model, modality) {
+  const id = ((model && (model.id || model)) || '').toString().toLowerCase();
+  const cat = String((model && model.category) || '').toLowerCase();
+  const hay = `${id} ${cat}`;
+  if (modality === 'video') {
+    if (/reference[-_. ]?to[-_. ]?video/.test(hay)) return 'reference-to-video';
+    if (/image[-_. ]?to[-_. ]?video|\bi2v\b/.test(hay)) return 'image-to-video';
+    if (/video[-_. ]?to[-_. ]?video|\bv2v\b|video[-_. ]?edit/.test(hay)) return 'video-to-video';
+    return 'text-to-video';
+  }
+  if (modality === 'audio') return 'audio-generation';
+  if (modality === '3d') return 'text-to-3d';
+  if (modality === 'text') return 'text';
+  if (/image[-_. ]?to[-_. ]?image|\bi2i\b/.test(hay)) return 'image-to-image';
+  return 'text-to-image';
+}
+
+// Public shape used by the enhance route: coarse modality plus flow token.
+function deriveMediaTypeWorker(model) {
+  return deriveFlowWorker(model, deriveModalityWorker(model));
+}
+
+// An explicit `modality` in the request body wins over any derivation, so a
+// wrong guess is overridable without a code change. Only image|video are
+// accepted; anything else is ignored and the derivation stands.
+function normalizeRequestedModality(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return s === 'image' || s === 'video' ? s : null;
+}
+
+function resolveEnhanceModalityWorker(model, requested) {
+  const forced = normalizeRequestedModality(requested);
+  if (forced) return { modality: forced, mediaType: forced === 'video' ? 'text-to-video' : 'text-to-image', source: 'request' };
+  const modality = deriveModalityWorker(model);
+  return { modality, mediaType: deriveFlowWorker(model, modality), source: 'derived' };
+}
+
+/* ------------------------------------------------------------------
+   Refusal guard (K10).
+
+   A provider that refuses returns an HTTP 200 and a well-formed prompt-shaped
+   string, so nothing in the existing pipeline noticed: the refusal was stored
+   in `enhancements` as a successful enhancement and then reused.
+
+   Deliberately narrow. Two tiers, and a refusal must clear the first OR pass
+   both of the second tier's conditions:
+
+     tier 1 - a refusal opener anywhere in the first 200 characters
+              ("I can't help with that", "I'm sorry, but ...", "I must
+              decline"). Anchored to the head, because that is where a refusal
+              states itself and a real prompt rarely opens that way.
+     tier 2 - a meta statement about the assistant ("as an AI ...", "against
+              my guidelines") AND a total length of 200 characters or less.
+              The length ceiling is what makes this safe: a meta phrase quoted
+              inside a long, legitimate prompt cannot trigger it.
+
+   Plus a hard 400-character cap: a refusal is short, and an enhanced prompt
+   that long has certainly been produced. Legitimate short prompts therefore
+   survive - they are under the cap and must additionally match a refusal
+   opener, not merely mention the word "policy".
+   ------------------------------------------------------------------ */
+const REFUSAL_OPENERS = [
+  /^\s*(?:i\s+(?:can(?:'|no)?t|won(?:'|no)?t)|i'?m\s+(?:sorry|afraid|unable)|sorry|unfortunately|unfortunately,|i\s+must\s+decline|i\s+have\s+to\s+decline|as\s+an\s+ai\b|i'?m\s+not\s+able\s+to\b|it\s+is\s+not\s+appropriate|it'?s\s+not\s+appropriate)/i,
+  /\bi\s+(?:can(?:'|no)?t|won(?:'|no)?t)\s+(?:help|assist|comply|fulfil|fulfill|provide|create|generate|write|process)\b/i,
+  /\bi\s+(?:must|have\s+to)\s+(?:decline|refuse)\b/i,
+  /\bi\s+can(?:'|no)?t\s+(?:help|assist|comply|fulfil|fulfill|provide|create|generate|write|process)\s+(?:with|that|this)\b/i,
+];
+const REFUSAL_META = [
+  /\bas\s+an?\s+ai\b/i,
+  /\b(?:violat\w+|against|in\s+conflict\s+with)\s+(?:my|our|the)\s+(?:polic\w+|guideline\w*|terms|rules|safety)/i,
+  /\bi(?:'|’)?m\s+not\s+(?:able|permitted)\s+to\b/i,
+];
+const REFUSAL_MAX_CHARS = 400;
+const REFUSAL_META_MAX_CHARS = 200;
+
+function isRefusalText(text) {
+  const t = String(text || '').trim();
+  if (!t || t.length > REFUSAL_MAX_CHARS) return false;
+  const head = t.slice(0, 200);
+  if (REFUSAL_OPENERS.some((re) => re.test(head))) return true;
+  return t.length <= REFUSAL_META_MAX_CHARS && REFUSAL_META.some((re) => re.test(t));
 }
 function deriveTechniques(content, ctx) {
   const t = [];
@@ -67,24 +227,37 @@ function deriveTechniques(content, ctx) {
   return t;
 }
 function buildEnhancerSystemPrompt(raw, ctx) {
-  let t = ENHANCER_TEMPLATE.replace('[Media Generation Type]', ctx.mediaType).replace('[Model]', ctx.model);
+  // Modality picks the template, not just a token inside one shared string.
+  // An image model must never receive the video template, and vice versa.
+  const video = isVideoMediaType(ctx.mediaType);
+  let t = (video ? ENHANCER_TEMPLATE_VIDEO : ENHANCER_TEMPLATE_IMAGE)
+    .replace('[Media Generation Type]', ctx.mediaType)
+    .replace('[Model]', ctx.model);
   const resAspect = [];
   if (ctx.resolution) resAspect.push(ctx.resolution);
   if (ctx.aspectRatio) resAspect.push(ctx.aspectRatio);
   if (resAspect.length) {
     t = t.replace('[resolution] and [aspect ratio]', resAspect.join(' and '));
   } else {
-    t = t.replace(/The video will be generated at \[resolution\] and \[aspect ratio\][^\n]*\n?/, '');
+    // Drop the whole sentence. Leaving it produces "The video will be generated
+    // at  and " in the prompt.
+    t = t.replace(/\n?(?:The (?:video|image) will be generated at) \[resolution\] and \[aspect ratio\][^\n]*/, '');
   }
-  if (!ctx.hasAudio) {
-    t = t.replace(/if \[Model\] includes audio generation,.*format\./, '').trim();
+  // Audio: both templates carry the [audio clause] sentinel on its own line, so
+  // it is removed cleanly in either branch instead of by a prose regex that
+  // only matched the video template's exact wording.
+  if (ctx.hasAudio) {
+    t = t.replace('[audio clause]', `if ${ctx.model} includes audio generation, insert appropriate sound effect cues and format any dialogue into the most AI friendly format.`);
   } else {
-    t = t.replace(/\[Model\]/g, ctx.model);
+    t = t.replace(/\n\[audio clause\]/, '');
   }
-  if (!hasDialogueCues(raw)) {
+  // Dialogue formatting is only worth asking for when the raw prompt has some.
+  if (ctx.hasAudio && !hasDialogueCues(raw)) {
     t = t.replace(/and format any dialogue into the most AI friendly format\./, ' (dialogue formatting not needed for this prompt).');
   }
-  if (ctx.duration && ctx.mediaType.includes('video')) {
+  // Duration only means something for video. Appending it to an image model is
+  // how "8 second" and "24fps" leaked into still-image prompts.
+  if (ctx.duration && video) {
     t += `\nVideo length: ${ctx.duration} seconds â€” add timestamp directions accordingly.`;
   }
   const fam = (ctx.model || '').toLowerCase();
@@ -109,6 +282,38 @@ function buildEnhancerSystemPrompt(raw, ctx) {
   return t;
 }
 /* ------------------------------------------------------------------
+   Model row lookup for the enhancer.
+
+   The enhance route used to synthesise a fake model row
+   (`group_of: modelId.includes('wan') ? 'video' : 'image'`) and hand it to the
+   classifier, which then reported every Replicate image model as
+   'text-to-video'. This repository's D1 DOES carry the harvested catalogue -
+   `models.group_of` (image|video|audio|3d|text|other) is populated by
+   migrations/0002_replicate_catalog.sql - so it is read here.
+
+   Ids arrive as `owner/repo` or `owner/repo:version`; both forms are in the
+   table, so both are tried. Returns null on any failure, and the caller falls
+   back to the pure-regex ladder rather than failing the request.
+   ------------------------------------------------------------------ */
+const _modelRowCache = new Map();
+async function lookupModelRow(env, modelId) {
+  const id = String(modelId || '');
+  if (!id || !env || !env.DB) return null;
+  if (_modelRowCache.has(id)) return _modelRowCache.get(id);
+  let row = null;
+  try {
+    const base = id.includes(':') ? id.split(':')[0] : id;
+    const stmt = 'SELECT id, category, family, group_of FROM models WHERE id = ? LIMIT 1';
+    row = await env.DB.prepare(stmt).bind(id).first();
+    if (!row && base !== id) row = await env.DB.prepare(stmt).bind(base).first();
+  } catch {
+    row = null; // no models table (pre-migration) or a transient D1 error
+  }
+  _modelRowCache.set(id, row || null);
+  return row || null;
+}
+
+/* ------------------------------------------------------------------
    Prompt Atlas guide lookup (Phase 1).
 
    Returns the condensed enhancer block for this model, or null. Guards:
@@ -127,16 +332,21 @@ async function getPromptGuide(env, model) {
   // Defaults to on when unset.
   if (env.GUIDE_INJECTION === '0' || env.GUIDE_INJECTION === 'false') return null;
   if (!env.HISTORY || !model) return null;
-  const cacheKey = String(model.id);
+  // Keyed by id AND modality: a request that overrides modality gets a different
+// guide lookup, so a single id-only key would serve the wrong group's guide.
+  const cacheKey = `${String(model.id)}::${String(model.group_of || '')}`;
   if (_guideCache.has(cacheKey)) return _guideCache.get(cacheKey);
   let guide = null;
   try {
     const { resolveGuideKey } = await import('./prompt-guides.mjs');
-    const modality = model.group_of === 'video' ? 'video' : 'image';
+    // Only image and video have guides. Passing 'image' for an audio/3d/text
+    // model would let an image-family guide match on the id alone, so those
+    // resolve with no modality filter and the family rules decide.
+    const modality = model.group_of === 'video' || model.group_of === 'image' ? model.group_of : null;
     // modality is passed to the resolver so a video guide is never looked up
     // for an image model (e.g. an image-group Wan model): that key does not
     // exist and the lookup would silently resolve to nothing.
-    const key = resolveGuideKey(model.id, model.family || '', modality);
+    const key = modality ? resolveGuideKey(model.id, model.family || '', modality) : null;
     if (key) {
       const guideKey = `${modality}/${key}`;
       const row = await env.HISTORY
@@ -151,7 +361,45 @@ async function getPromptGuide(env, model) {
   _guideCache.set(cacheKey, guide);
   return guide;
 }
+/* ------------------------------------------------------------------
+   Per-provider API key resolution.
+
+   Old behaviour was `baseUrl.includes('venice.ai') ? VENICE_API_KEY :
+   OPENROUTER_API_KEY`, applied in two places. It was correct for exactly two
+   providers by accident and silently authenticated every other host with the
+   OpenRouter key - a new provider added without touching the sniff gets a 401
+   that looks like a bad model id.
+
+   Resolution order:
+     1. p.apiKey  - an explicitly stored key on the entry (redacted as *** on
+                    read, preserved verbatim on write).
+     2. p.apiKeyEnv - the named Worker secret. This is the generalising fix.
+     3. Legacy fallback: the old venice.ai substring sniff, so llm_config rows
+        written before apiKeyEnv existed keep working unchanged.
+   ------------------------------------------------------------------ */
+function resolveProviderApiKey(p, env) {
+  const explicit = String((p && p.apiKey) || '').trim();
+  if (explicit) return explicit;
+  const named = String((p && p.apiKeyEnv) || '').trim();
+  if (named && env && typeof env === 'object') {
+    const k = env[named];
+    if (k) return String(k);
+    // The entry names a secret that is not configured. Fall through so the
+    // caller reports "missing key for <model>" rather than trying a key that
+    // belongs to a different host.
+    return '';
+  }
+  if (!env || typeof env !== 'object') return '';
+  // Legacy rows predate apiKeyEnv.
+  const isVenice = String((p && p.baseUrl) || '').includes('venice.ai');
+  return (isVenice ? env.VENICE_API_KEY : env.OPENROUTER_API_KEY) || '';
+}
+
 async function getLLMConfigWorker(env) {
+  // A stored row outranks DEFAULT_LLM_PROVIDERS entirely, so adding a default
+  // has no effect until the row is updated. That is deliberate (the settings UI
+  // owns the live chain) but it is the reason a new default can look like a
+  // no-op; the report has the idempotent SQL to prepend it.
   try {
     const row = await env.DB.prepare('SELECT json FROM llm_config WHERE id=1').first();
     if (row && row.json) {
@@ -159,14 +407,8 @@ async function getLLMConfigWorker(env) {
       if (cfg.providers && cfg.providers.length) return cfg;
     }
   } catch {}
-  const veniceKey = env.VENICE_API_KEY || '';
-  const openrouterKey = env.OPENROUTER_API_KEY || '';
   return {
-    providers: DEFAULT_LLM_PROVIDERS.map((p) => {
-      const isVenice = (p.baseUrl || '').includes('venice.ai');
-      const envKey = isVenice ? veniceKey : openrouterKey;
-      return { ...p, apiKey: envKey || p.apiKey };
-    }),
+    providers: DEFAULT_LLM_PROVIDERS.map((p) => ({ ...p, apiKey: resolveProviderApiKey(p, env) })),
   };
 }
 function redactLLMConfig(cfg) {
@@ -363,11 +605,19 @@ async function handleApiRoute(request, env, path, ctx) {
     const providers = incoming.providers.map((p, i) => {
       let apiKey = (p.apiKey || '').trim();
       if (apiKey === '***' && existing && existing.providers[i]) apiKey = existing.providers[i].apiKey;
-      return {
+      const out = {
         baseUrl: (p.baseUrl || 'https://openrouter.ai/api/v1').trim().replace(/\/$/, ''),
         model: (p.model || '').trim(),
         apiKey,
       };
+      // Carry provider/apiKeyEnv through the save. Dropping them here would
+      // strip the new provider of the secret name it needs, so the next enhance
+      // would fall back to the legacy venice sniff and 401.
+      const named = String(p.apiKeyEnv || (existing && existing.providers[i] && existing.providers[i].apiKeyEnv) || '').trim();
+      if (/^[A-Z][A-Z0-9_]*$/.test(named)) out.apiKeyEnv = named;
+      const label = String(p.provider || (existing && existing.providers[i] && existing.providers[i].provider) || '').trim();
+      if (label) out.provider = label;
+      return out;
     }).filter((p) => p.model);
     if (!providers.length) return jsonResponse({ error: 'At least one provider with a model is required' }, 400);
     const toSave = { providers };
@@ -521,7 +771,7 @@ async function handleApiRoute(request, env, path, ctx) {
     }
   }
 
-  // â”€â”€â”€ POST /api/enhance + /api/optimize â”€â”€â”€ (Venice primary, fail-fast, no retry per model)
+  // â”€â”€â”€ POST /api/enhance + /api/optimize â”€â”€â”€ (fail-fast per provider, no retry per model)
   if ((path === '/api/enhance' || path === '/api/optimize') && request.method === 'POST') {
     let body;
     try { body = await request.json(); } catch { return jsonResponse({ error: 'Invalid JSON' }, 400); }
@@ -532,25 +782,35 @@ async function handleApiRoute(request, env, path, ctx) {
     const wantsJson = isOptimize || (request.headers.get('Accept') || '').includes('application/json') || body.stream === false;
     if (!rawPrompt) return jsonResponse({ error: 'rawPrompt/prompt is required' }, 400);
     if (!modelId) return jsonResponse({ error: 'modelId/target_model is required' }, 400);
-    // Replicate has no D1 catalog â€” treat modelId as opaque, but derive mediaType from it
-    const model = { id: modelId, family: '', group_of: modelId.includes('wan') || modelId.includes('alibaba') ? 'video' : 'image', category: modelId.includes('wan') ? 'Video' : 'Image' };
-    const mediaType = deriveMediaTypeWorker(model);
+    // Modality: an explicit body.modality wins, else D1 models.group_of /
+    // category, else the id regex ladder. Previously this synthesised a fake row
+    // that hardcoded group_of to video for anything matching /wan/ and image for
+    // everything else - and the classifier then returned 'text-to-video' from its
+    // final fallback too, so every image model got a video-shaped prompt.
+    const row = await lookupModelRow(env, modelId);
+    const model = {
+      id: modelId,
+      family: (row && row.family) || '',
+      group_of: (row && row.group_of) || '',
+      category: (row && row.category) || '',
+    };
+    const { modality, mediaType, source: modalitySource } = resolveEnhanceModalityWorker(model, body.modality);
     const aspectRatio = userParams.aspect_ratio || null;
     const resolution = userParams.resolution || (userParams.width && userParams.height ? `${userParams.width}x${userParams.height}` : null) || null;
     const duration = userParams.duration || null;
-    const hasAudio = !!(modelId.toLowerCase().includes('seedance') || modelId.toLowerCase().includes('wan') || modelId.toLowerCase().includes('audio'));
-    // Replicate model ids are opaque (`owner/repo` or `owner/repo:version`), so
-    // family is inferred from the id string rather than a models.family column.
-    const guide = await getPromptGuide(env, { id: modelId, family: '', group_of: mediaType.includes('video') ? 'video' : 'image' });
-    const ctx = { model: modelId, mediaType, aspectRatio, resolution, duration, hasAudio, guideBlock: guide && guide.block };
+    const idLower = modelId.toLowerCase();
+    const hasAudio = modality === 'audio' || (modality === 'video' && (idLower.includes('seedance') || idLower.includes('wan') || idLower.includes('audio')));
+    // family now comes from the catalogue rather than being hardcoded empty, so
+    // the Atlas version picker can key on it.
+    const guide = await getPromptGuide(env, { id: modelId, family: model.family, group_of: modality });
+    const ctx = { model: modelId, mediaType, modality, modalitySource, aspectRatio, resolution, duration, hasAudio, guideBlock: guide && guide.block };
     const systemPrompt = buildEnhancerSystemPrompt(rawPrompt, ctx);
     const llmCfg = await getLLMConfigWorker(env);
     let lastErr = null;
     for (const p of llmCfg.providers) {
       const baseUrl = (p.baseUrl || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
-      const isVenice = baseUrl.includes('venice.ai');
-      const apiKey = p.apiKey || (isVenice ? (env.VENICE_API_KEY || '') : (env.OPENROUTER_API_KEY || '')) || '';
-      if (!apiKey) { lastErr = 'Missing API key for ' + p.model; continue; }
+      const apiKey = resolveProviderApiKey(p, env);
+      if (!apiKey) { lastErr = 'Missing API key for ' + p.model + ' (env ' + (p.apiKeyEnv || 'OPENROUTER_API_KEY') + ')'; continue; }
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 12000);
       let llmRes;
@@ -590,8 +850,19 @@ async function handleApiRoute(request, env, path, ctx) {
       if (wantsJson) {
         try {
           const j = await llmRes.json();
+          // message.reasoning_content is chain-of-thought, not prompt text. It is
+          // read only so a reasoning-only model can still be counted, never
+          // merged into the returned or stored prompt.
           const content = j.choices?.[0]?.message?.content || j.choices?.[0]?.delta?.content || '';
-          if (!content) { lastErr = 'Empty LLM response'; continue; }
+          if (!content) {
+            lastErr = String(j.choices?.[0]?.message?.reasoning_content || '').trim()
+              ? 'Empty LLM response (reasoning_content only)'
+              : 'Empty LLM response';
+            continue;
+          }
+          // K10: a refusal is an HTTP 200 with prose, so the only way to stop it
+          // becoming a stored "successful enhancement" is to check before insert.
+          if (isRefusalText(content)) { lastErr = 'LLM refused to enhance (response looks like a refusal) [' + p.model + ']'; continue; }
           // OpenRouter reports the underlying model (routers); Venice echoes its own.
           const actualModel = j.model || p.model;
           const techniques = deriveTechniques(content, ctx);
@@ -606,6 +877,12 @@ async function handleApiRoute(request, env, path, ctx) {
         } catch (e) { lastErr = e.message; continue; }
       }
       let fullEnhanced = '';
+      // Chain-of-thought is accumulated separately and never persisted or
+      // streamed onward. Reasoning models interleave the two heavily (measured
+      // on glm-5.3-flash-abliterated: 27 reasoning deltas per 2 content deltas),
+      // so falling back from content to reasoning_content put the model's
+      // thinking into the user-facing enhanced prompt and into D1.
+      let reasoningChars = 0;
       let actualModel = p.model;
       const streamHeaders = {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -624,8 +901,13 @@ async function handleApiRoute(request, env, path, ctx) {
           try {
             while (true) {
               const { done, value } = await reader.read();
-                if (done) {
-                  if (fullEnhanced) {
+              if (done) {
+                  // The stream has already been piped through verbatim, so a
+                  // refusal cannot be un-sent to the browser here. What we can
+                  // hold is the stored record: a refusal is not written to
+                  // `enhancements`, and no history_id is emitted for it, so it
+                  // cannot be re-used as a successful enhancement later.
+                  if (fullEnhanced && !isRefusalText(fullEnhanced)) {
                     const hid = await histInsertEnhancement(env, {
                       source_app: 'replicate', kind: 'enhanced',
                       raw_prompt: rawPrompt, enhanced: fullEnhanced, target_provider: 'replicate',
@@ -634,6 +916,8 @@ async function handleApiRoute(request, env, path, ctx) {
                       retrieval_refs: guide ? [{ kind: 'prompt-atlas', guide_key: guide.guideKey }] : [],
                     });
                     if (hid) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ history_id: hid })}\n\n`));
+                  } else if (fullEnhanced) {
+                    console.warn('enhance: LLM response looked like a refusal - not persisted', { model: actualModel, reasoningChars });
                   }
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                 controller.close(); break;
@@ -646,7 +930,16 @@ async function handleApiRoute(request, env, path, ctx) {
                 if (!line.startsWith('data: ')) continue;
                 const d = line.slice(6).trim();
                 if (d === '[DONE]' || !d) continue;
-                try { const j = JSON.parse(d); const delta = j.choices?.[0]?.delta?.content || j.choices?.[0]?.delta?.reasoning_content || ''; if (delta) fullEnhanced += delta; if (j.model) actualModel = j.model; } catch {}
+                // Content and reasoning are counted separately. The old `||` fallback merged
+                // them, which is what corrupted stored output for reasoning models.
+                try {
+                  const j = JSON.parse(d);
+                  const delta = j.choices?.[0]?.delta?.content || '';
+                  const think = j.choices?.[0]?.delta?.reasoning_content || '';
+                  if (delta) fullEnhanced += delta;
+                  if (think) reasoningChars += think.length;
+                  if (j.model) actualModel = j.model;
+                } catch {}
               }
             }
           } catch (e) { try { controller.error(e); } catch {} }

@@ -29,7 +29,19 @@ bucket_name = "genai-assets"
 # Rollback switch for Prompt Atlas guide injection. Set to "0" to disable
 # without a code change — see docs/prompt-atlas-rollback.md.
 GUIDE_INJECTION = "1"
-# REPLICATE_API_TOKEN, VENICE_API_KEY, OPENROUTER_API_KEY set via .dev.vars / dashboard secrets
+# Secrets, set via .dev.vars locally or `wrangler secret put` per environment.
+# The enhancer resolves each provider's key from the `apiKeyEnv` named on its
+# entry in src/worker.js DEFAULT_LLM_PROVIDERS — the field is what replaced the
+# old baseUrl.includes('venice.ai') sniff, which sent the OpenRouter key to every
+# host that was not literally venice.ai. Adding a provider means adding its
+# secret here too:
+#   REPLICATE_API_TOKEN   - predictions, stays server-side
+#   EXPLABS_API_KEY       - https://api.experientiallabs.ai/v1 (chain default, first)
+#   OPENROUTER_API_KEY    - https://openrouter.ai/api/v1
+#   VENICE_API_KEY        - https://api.venice.ai/api/v1
+#   HUGGINGFACE_API_KEY   - /api/hf/file private-repo reads
+# An empty apiKeyEnv falls back to the legacy venice sniff, so llm_config rows
+# written before the field existed keep working.
 # Repos the /api/hf/file proxy may serve, as comma-separated owner/repo or
 # owner/* entries. EMPTY BY DEFAULT, and that is the correct setting unless you
 # have a PRIVATE LoRA that Replicate cannot fetch on its own.

@@ -200,10 +200,15 @@ export async function saveLlmConfig(config) {
   }).catch(() => {});
 }
 
-// Streaming enhance — protocol: POST {rawPrompt, modelId, params} →
+// Streaming enhance — protocol: POST {rawPrompt, modelId, params, modality} →
 // SSE OpenAI-style chunks (choices[0].delta.content) + {history_id} event,
 // X-Provider-Used / X-Model-Used headers, JSON fallback {enhanced,…}.
-export async function streamEnhance({ rawPrompt, modelId, params, signal, onToken, onMeta }) {
+//
+// `modality` ('image' | 'video') is the client's own read of the selected
+// model's group, sent so the Worker does not have to guess. The Worker still
+// derives one and only honours an explicitly valid value, so an absent or
+// wrong value degrades to the derivation rather than breaking the call.
+export async function streamEnhance({ rawPrompt, modelId, params, modality, signal, onToken, onMeta }) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 50000);
   const onAbort = () => ctrl.abort();
@@ -212,7 +217,12 @@ export async function streamEnhance({ rawPrompt, modelId, params, signal, onToke
     const res = await fetch(`${API}/api/enhance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rawPrompt, modelId, params }),
+      body: JSON.stringify({
+        rawPrompt,
+        modelId,
+        params,
+        ...(modality === 'image' || modality === 'video' ? { modality } : {}),
+      }),
       signal: ctrl.signal,
     });
     clearTimeout(timer);

@@ -219,7 +219,7 @@ usable MIME type.
 | GET | `/api/replicate/file` | Stream a saved object back out of R2 |
 | GET | `/api/hf/file` | Proxy a Hugging Face file for allowlisted repos |
 | GET/POST | `/api/cloud/list`, `/api/cloud/file`, `/api/cloud/resolve` | Browse, fetch, and rehost R2 objects |
-| POST | `/api/enhance` | Stream an enhanced prompt (SSE) |
+| POST | `/api/enhance` | Stream an enhanced prompt (SSE). Body `{rawPrompt, modelId, params, modality?}` |
 | POST | `/api/optimize` | Same, buffered to JSON |
 | GET/PUT | `/api/llm-config` | Read (redacted) or write the enhancer's LLM chain |
 | GET | `/api/prompts` | List persisted prompts |
@@ -243,9 +243,18 @@ split only matters if Access is scoped to specific paths.
 | Name | Required | Purpose |
 |---|---|---|
 | `REPLICATE_API_TOKEN` | yes | All prediction calls, kept server-side |
-| `OPENROUTER_API_KEY` | for enhancer | Default LLM provider |
+| `EXPLABS_API_KEY` | for enhancer | Default LLM provider (`https://api.experientiallabs.ai/v1`) |
+| `OPENROUTER_API_KEY` | for enhancer | Fallback LLM provider (`https://openrouter.ai/api/v1`) |
 | `VENICE_API_KEY` | optional | Alternative LLM provider in the chain |
 | `HUGGINGFACE_API_KEY` | optional | Lets `/api/hf/file` read allowlisted private repos |
+
+Each provider entry carries an `apiKeyEnv` naming the secret it authenticates
+with, and key resolution reads that field. It replaced a
+`baseUrl.includes('venice.ai')` check that was correct for two providers by
+accident and handed the OpenRouter key to every other host — so a newly added
+provider 401'd against a key that was never its own. Rows saved before the field
+existed fall back to the old check, which is why existing `llm_config` entries
+keep working.
 
 Two plain vars control the private-LoRA proxy, both defaulting to a safe state:
 
@@ -305,6 +314,7 @@ cd client && npm run build && cd ..
 
 # Secrets
 npx wrangler secret put REPLICATE_API_TOKEN
+npx wrangler secret put EXPLABS_API_KEY
 npx wrangler secret put OPENROUTER_API_KEY
 
 # Publish
@@ -332,15 +342,69 @@ server-sent events and the full text is persisted once the stream completes.
 
 Providers are tried in order until one succeeds:
 
-1. `https://openrouter.ai/api/v1` — `liquid/lfm-2.5-2.6b:free`
-2. `https://openrouter.ai/api/v1` — `openrouter/free`
-3. `https://api.venice.ai/api/v1` — `venice-uncensored`
+1. `https://api.experientiallabs.ai/v1` — `glm-5.3-flash-abliterated`
+2. `https://openrouter.ai/api/v1` — `liquid/lfm-2.5-2.6b:free`
+3. `https://openrouter.ai/api/v1` — `openrouter/free`
+4. `https://api.venice.ai/api/v1` — `venice-uncensored`
 
 Venice model IDs change as their catalog rotates, so any Venice entry is worth
 confirming before relying on it; a stale ID surfaces as a `404` that the chain
-falls through. The chain is stored in the `llm_config` D1 row when set through
-the settings modal and falls back to these defaults otherwise. Keys are resolved
-per provider from the matching environment secret and are always redacted on read.
+falls through.
+
+Two things about that list are easy to get wrong:
+
+- **A stored chain outranks it.** `llm_config` row `id = 1` replaces these
+  defaults entirely when it exists, so adding a provider here changes nothing
+  until that row is updated. Leave the new entry's `apiKey` empty in the stored
+  row and the key resolves from the Worker secret, which keeps the secret out of
+  D1.
+- **It is mirrored in three places.** `src/worker.js`
+  (`DEFAULT_LLM_PROVIDERS`), `client/src/enhancer.js` (`DEFAULT_LLM`, the
+  settings modal's fallback) and the browser-side chain in `public/index.html`
+  that runs when the Worker route fails. All three must list the same providers
+  in the same order or the app answers with a different model depending on which
+  path it took.
+
+Keys are resolved per provider from the `apiKeyEnv` named on the entry, and are
+always redacted on read.
+
+### Modality decides the template
+
+The target model's modality picks which system prompt is used, and it is
+resolved in this order: an explicit `modality` field on the request, then the
+catalogue's `models.group_of` in D1 (`image | video | audio | 3d | text | other`,
+populated by `migrations/0002_replicate_catalog.sql`), then Replicate's category
+string, then a ladder over model and family names. The ladder's final fallback
+is `image`, never video — telling a video model to skip timestamps costs polish,
+while telling an image model to add them produces a prompt it cannot honour.
+
+Image models get a still-image template (subject, composition, lens, lighting,
+palette, medium) that explicitly forbids timestamps, timecodes, camera movement,
+duration and shot lists. Video models keep the timestamp and camera-jargon
+guidance, and only they get the `Video length: N seconds` line. A single shared
+template could not express this: the `[Media Generation Type]` slot alone left
+the video prose in place, which is how image models came back with timestamps
+and camera moves.
+
+A client can override the derivation by sending `"modality": "image"` or
+`"video"`; anything else is ignored and the derivation stands.
+
+### Reasoning models and refusals
+
+Reasoning providers interleave `delta.reasoning_content` with `delta.content`.
+Only `delta.content` is accumulated into the enhanced prompt — falling back to
+the reasoning field put chain-of-thought into the stored and user-facing text,
+which matters most once a reasoning model is first in the chain.
+
+A refusal is an HTTP 200 with well-formed prose, so it used to be persisted as a
+successful enhancement. `isRefusalText` now screens both the JSON and streaming
+paths before the insert. The threshold is deliberately narrow: a refusal opener
+within the first 200 characters, **or** an "as an AI" style statement in a
+response of 200 characters or less, **and** nothing over 400 characters is ever
+treated as a refusal. Short legitimate prompts survive because they must also
+match an opener rather than merely mention a word like "policy". On the
+streaming path the bytes have already been forwarded to the browser, so the
+guard holds the stored record rather than the text on screen.
 
 The system prompt is deliberately framed as format optimization only, so the
 enhancer performs mechanical conversion for any subject matter and leaves

@@ -296,7 +296,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
       <!-- AI Prompt Enhancer (mirrors muapi, now Venice-primary fail-fast) -->
       <section id="enhancerPanel" class="panel">
         <h2 class="panel-title"><i class="fas fa-wand-magic-sparkles"></i> AI Prompt Enhancer</h2>
-        <p class="text-[11px] text-zinc-500 mb-2">Technical prompt engineer — format optimization only, no refusals. Venice primary (<code>venice-uncensored</code> @ <code>api.venice.ai</code>) → <code>thinkingmachines/inkling:free</code> → <code>openrouter/free</code> (fail-fast 12s, no retry per model).</p>
+        <p class="text-[11px] text-zinc-500 mb-2">Technical prompt engineer — format optimization only, no refusals. Default chain: Experimental Labs (<code>glm-5.3-flash-abliterated</code> @ <code>api.experientiallabs.ai</code>) → OpenRouter (<code>liquid/lfm-2.5-2.6b:free</code>, <code>openrouter/free</code>) → Venice (<code>venice-uncensored</code>) (fail-fast 12s, no retry per model).</p>
         <textarea id="enhancerInput" class="prompt-textarea" style="min-height:80px" placeholder="Write a rough prompt to enhance..."></textarea>
         <div id="enhancerContextPreview" class="text-[10px] text-zinc-600 mt-2 p-2 rounded bg-zinc-900/50 hidden"></div>
         <button id="btnEnhancePrompt" class="btn-primary-sm w-full mt-2"><i class="fas fa-wand-magic-sparkles mr-1"></i> Enhance — fail-fast</button>
@@ -390,7 +390,7 @@ body{font-family: ui-sans-system, -apple-system, Inter, sans-serif; background:#
       <h3 class="text-lg font-semibold">LLM Settings — Prompt Enhancer</h3>
       <button id="closeSettingsModal" class="icon-btn" type="button"><i class="fas fa-times"></i></button>
     </div>
-    <p class="text-xs text-zinc-500 mb-3">Fail-fast chain — 12s per provider, no retry per model. Venice primary <code>venice-uncensored</code> @ <code>api.venice.ai</code> → <code>thinkingmachines/inkling:free</code> → <code>openrouter/free</code>. Keys stored locally (and via Worker if deployed). Lightweight, model-specific formatting per target model.</p>
+    <p class="text-xs text-zinc-500 mb-3">Fail-fast chain — 12s per provider, no retry per model. Default: Experimental Labs <code>glm-5.3-flash-abliterated</code> → OpenRouter <code>liquid/lfm-2.5-2.6b:free</code> → <code>openrouter/free</code> → Venice <code>venice-uncensored</code>. Each entry carries the env var name its host needs. Keys stored locally (and via Worker if deployed). Lightweight, model-specific formatting per target model.</p>
     <div id="llmProvidersList" class="space-y-2"></div>
     <button id="btnAddProvider" class="btn-secondary w-full mt-3" type="button"><i class="fas fa-plus mr-1"></i> Add model</button>
     <div class="flex justify-end gap-2 mt-4">
@@ -2215,7 +2215,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 </script>
 <script>
-// ===== Replicate Enhancer — client-side Venice primary → OpenRouter failover (fail-fast, no retry per model) =====
+// ===== Replicate Enhancer — client-side chain, Experimental Labs → OpenRouter → Venice (fail-fast, no retry per model) =====
 (function(){
   // Share globals with main script (expose for consistency with muapi)
   try{
@@ -2225,11 +2225,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(typeof currentSchema!=='undefined') Object.defineProperty(window,'currentSchema',{get:()=>currentSchema,configurable:true});
   }catch{}
 
+  // Mirror of src/worker.js DEFAULT_LLM_PROVIDERS — same order, same
+  // apiKeyEnv names. This chain is only the browser-side fallback used when the
+  // Worker route fails, but a divergent default here silently changes which
+  // provider answers, so it is kept in step rather than maintained separately.
   const DEFAULT_LLM = {
     providers:[
-      {baseUrl:"https://api.venice.ai/api/v1", model:"venice-uncensored", apiKey:""},
-      {baseUrl:"https://openrouter.ai/api/v1", model:"thinkingmachines/inkling:free", apiKey:""},
-      {baseUrl:"https://openrouter.ai/api/v1", model:"openrouter/free", apiKey:""},
+      {provider:"explabs", apiKeyEnv:"EXPLABS_API_KEY", baseUrl:"https://api.experientiallabs.ai/v1", model:"glm-5.3-flash-abliterated", apiKey:""},
+      {provider:"openrouter", apiKeyEnv:"OPENROUTER_API_KEY", baseUrl:"https://openrouter.ai/api/v1", model:"liquid/lfm-2.5-2.6b:free", apiKey:""},
+      {provider:"openrouter", apiKeyEnv:"OPENROUTER_API_KEY", baseUrl:"https://openrouter.ai/api/v1", model:"openrouter/free", apiKey:""},
+      {provider:"venice", apiKeyEnv:"VENICE_API_KEY", baseUrl:"https://api.venice.ai/api/v1", model:"venice-uncensored", apiKey:""},
     ]
   };
   const MODEL_PRESETS={
@@ -2239,19 +2244,81 @@ document.addEventListener('DOMContentLoaded', ()=>{
     kling:`Kling/Luma models: Natural language + key motion descriptors, keep concise.`,
     default:``
   };
-  const TEMPLATE = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. This should include determining the optimal prompt length, or at least the ideal minimum and maximum word counts, determining whether the model excels with keyword based prompts or full narrative descriptions, what types of prompts work best (describe everything vs just describe movement, etc), whether it accepts timestamp direction (at 00:05, do this, at 00:10 do that, etc) and if it does add these timestamp directions based on the total length of the video (as input by the user) and estimating the time it would take for the described actions in the scene to take place, determine if a certain camera lens or videography style works well if called out for the specific model, translate any vague camera movement directions into videographer jargon (dolly out, orbital, chase cam, etc).  The video will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model.  \nif [Model] includes audio generation, insert appropriate sound effect cues and format any dialogue into the most AI friendly format.`;
+  // Modality-aware templates. Mirrors ENHANCER_TEMPLATE_IMAGE / _VIDEO in
+  // src/worker.js. The image branch carries an explicit negative instruction:
+  // without it the model keeps reaching for the vocabulary it was just told to
+  // avoid, which is how timestamps and camera moves ended up in still-image
+  // prompts.
+  const TEMPLATE_IMAGE = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. Decide the optimal length for this model (or at least a sensible minimum and maximum word count) and whether it excels with keyword/tag prompts or with full narrative description. Write it as a STILL IMAGE: describe the subject and its appearance, the composition and framing, the lens or perspective, the lighting, the colour palette, the medium and style. Order the description subject first, then scene and background, then style and technical tags.
+STRICT - this is one frozen frame. Do NOT output timestamps or timecodes (no "at 00:05", no "0s-3s"). Do NOT describe camera movement (dolly, pan, tilt, orbit, crane, tracking, handheld, push in, pull out). Do NOT reference duration, frame count, cuts, shot lists or any sequence. Do NOT use motion verbs that imply a timeline. Where the raw prompt contains movement or timing, convert it into the static pose, expression, framing and lighting that capture the same idea in a single image.
+The image will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model).
+[audio clause]`;
+  const TEMPLATE_VIDEO = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. This should include determining the optimal prompt length, or at least the ideal minimum and maximum word counts, determining whether the model excels with keyword based prompts or full narrative descriptions, what types of prompts work best (describe everything vs just describe movement, etc), whether it accepts timestamp direction (at 00:05, do this, at 00:10 do that, etc) and if it does add these timestamp directions based on the total length of the video (as input by the user) and estimating the time it would take for the described actions in the scene to take place, determine if a certain camera lens or videography style works well if called out for the specific model, translate any vague camera movement directions into videographer jargon (dolly out, orbital, chase cam, etc). The video will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model).
+[audio clause]`;
 
   function hasDialogueCues(s){ return /["\u201c\u201d].*["\u201c\u201d]|dialogue|says\s+["\u201c]|speaking|voice:/i.test(s); }
+  function isVideoMediaType(mt){ return /video/i.test(String(mt||"")); }
+  // Refusal guard. Mirrors isRefusalText in src/worker.js: a refusal is an HTTP
+  // 200 with prose, so nothing else stops it being stored as a successful
+  // enhancement. Narrow on purpose — a refusal opener in the first 200 chars,
+  // OR an "as an AI" statement in a response of 200 chars or less — and nothing
+  // over 400 chars is ever treated as a refusal, so short legitimate prompts
+  // survive.
+  const REFUSAL_OPENERS=[
+    /^\s*(?:i\s+(?:can(?:'|no)?t|won(?:'|no)?t)|i'?m\s+(?:sorry|afraid|unable)|sorry|unfortunately|i\s+must\s+decline|i\s+have\s+to\s+decline|as\s+an\s+ai\b|i'?m\s+not\s+able\s+to\b|it\s+is\s+not\s+appropriate|it'?s\s+not\s+appropriate)/i,
+    /\bi\s+(?:can(?:'|no)?t|won(?:'|no)?t)\s+(?:help|assist|comply|fulfil|fulfill|provide|create|generate|write|process)\b/i,
+    /\bi\s+(?:must|have\s+to)\s+(?:decline|refuse)\b/i,
+    /\bi\s+can(?:'|no)?t\s+(?:help|assist|comply|fulfil|fulfill|provide|create|generate|write|process)\s+(?:with|that|this)\b/i,
+  ];
+  const REFUSAL_META=[
+    /\bas\s+an?\s+ai\b/i,
+    /\b(?:violat\w+|against|in\s+conflict\s+with)\s+(?:my|our|the)\s+(?:polic\w+|guideline\w*|terms|rules|safety)/i,
+    /\bi(?:'|’)?m\s+not\s+(?:able|permitted)\s+to\b/i,
+  ];
+  function isRefusalText(text){
+    const t=String(text||"").trim();
+    if(!t||t.length>400) return false;
+    if(REFUSAL_OPENERS.some(re=>re.test(t.slice(0,200)))) return true;
+    return t.length<=200 && REFUSAL_META.some(re=>re.test(t));
+  }
+  // Mirrors deriveModalityWorker in src/worker.js. group_of (via the model's
+  // group) wins, then Replicate's category string, then an id ladder. The
+  // fallback is image, never video: a wrong video verdict on an image model is
+  // the bug this replaces.
+  function deriveModality(model){
+    if(!model) return "image";
+    const id=String(model.id||"").toLowerCase();
+    const cat=String(model.category||"").toLowerCase();
+    const group=String(model.group_of||model.group||"").toLowerCase();
+    if(["video","image","audio","3d","text"].includes(group)) return group;
+    if(/\b(audio|speech|tts|voice|music|song|whisper|transcri\w*)\b/.test(cat)) return "audio";
+    if(/\b(3d|three-?d|mesh|voxel)\b/.test(cat)) return "3d";
+    if(/image[-_. ]?to[-_. ]?video|video[-_. ]?to[-_. ]?video|text[-_. ]?to[-_. ]?video|reference[-_. ]?to[-_. ]?video|\bvideo\b/.test(cat)) return "video";
+    if(/image[-_. ]?to[-_. ]?image|text[-_. ]?to[-_. ]?image|\bimage\b/.test(cat)) return "image";
+    if(/image[-_. ]?to[-_. ]?image|\bi2i\b/.test(id)) return "image";
+    if(/(reference|image|text|video)[-_. ]?to[-_. ]?video|\b(i2v|t2v|v2v)\b/.test(id)) return "video";
+    if(/image[-_. ]?to[-_. ]?image|text[-_. ]?to[-_. ]?image|\b(i2i|t2i)\b/.test(id)) return "image";
+    if(/\b(wan|hunyuan|ltx|kling|mochi|cogvideo|svd|animatediff|seedance|veo|hailuo|minimax|framepack|skyreels)\b/.test(id)) return "video";
+    if(/\b(flux|sdxl|stable[-_. ]?diffusion|qwen[-_. ]?image|z[-_. ]?image|krea|ideogram|recraft|hidream|dall|playground|photomaker|shuttle|juggernaut|lumina|kolors)\b/.test(id)) return "image";
+    if(/\b(audio|speech|tts|voice|music|song|whisper|mmaudio)\b/.test(id)) return "audio";
+    if(/\b(triposr|shap-e|trellis|3d)\b/.test(id)) return "3d";
+    return "image";
+  }
   function deriveMediaType(model){
-    if(!model) return "text-to-video";
-    const id=(model.id||"").toLowerCase();
-    const cat=(model.category||"").toLowerCase();
-    if(id.includes("reference-to-video")) return "reference-to-video";
-    if(id.includes("image-to-video")||id.includes("-i2v")||id.includes("i2v")) return "image-to-video";
-    if(id.includes("text-to-video")||id.includes("-t2v")) return "text-to-video";
-    if(cat.includes("text to image")) return "text-to-image";
-    if(cat.includes("audio")) return "audio generation";
-    return cat.replace(/ /g,"-")||"text-to-video";
+    if(!model) return "text-to-image";
+    const modality=deriveModality(model);
+    const hay=(String(model.id||"")+" "+String(model.category||"")).toLowerCase();
+    if(modality==="video"){
+      if(/reference[-_. ]?to[-_. ]?video/.test(hay)) return "reference-to-video";
+      if(/image[-_. ]?to[-_. ]?video|\bi2v\b/.test(hay)) return "image-to-video";
+      if(/video[-_. ]?to[-_. ]?video|\bv2v\b|video[-_. ]?edit/.test(hay)) return "video-to-video";
+      return "text-to-video";
+    }
+    if(modality==="audio") return "audio-generation";
+    if(modality==="3d") return "text-to-3d";
+    if(modality==="text") return "text";
+    if(/image[-_. ]?to[-_. ]?image|\bi2i\b/.test(hay)) return "image-to-image";
+    return "text-to-image";
   }
   function getCtx(){
     const m=(typeof currentModel!=='undefined'?currentModel:window.currentModel)||null;
@@ -2265,20 +2332,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
       aspectRatio:p.aspect_ratio||def.aspect_ratio||null,
       resolution:p.resolution||(p.width&&p.height?`${p.width}x${p.height}`:null)||def.resolution||null,
       duration:p.duration||def.duration||null,
-      hasAudio: !!(m.id.includes("seedance")||m.id.includes("wan")||m.id.includes("audio")||(m.group_of&&m.group_of.includes("audio")))
+      // Audio only applies to video/audio models. The old expression matched any
+      // id containing "audio"/"wan" regardless of modality.
+      hasAudio: deriveModality(m)==="audio"||(deriveModality(m)==="video"&&(m.id.includes("seedance")||m.id.includes("wan")||m.id.includes("audio")||(m.group_of&&m.group_of.includes("audio"))))
     };
   }
   function buildSystemPrompt(raw, ctx){
-    let t=TEMPLATE.replace("[Media Generation Type]",ctx.mediaType).replace("[Model]",ctx.model);
+    const video=isVideoMediaType(ctx.mediaType);
+    let t=(video?TEMPLATE_VIDEO:TEMPLATE_IMAGE).replace("[Media Generation Type]",ctx.mediaType).replace("[Model]",ctx.model);
     const resAspect=[];
     if(ctx.resolution) resAspect.push(ctx.resolution);
     if(ctx.aspectRatio) resAspect.push(ctx.aspectRatio);
     if(resAspect.length) t=t.replace("[resolution] and [aspect ratio]",resAspect.join(" and "));
-    else t=t.replace(/The video will be generated at \[resolution\] and \[aspect ratio\][^\n]*\n?/,"");
-    if(!ctx.hasAudio) t=t.replace(/if \[Model\] includes audio generation,.*format\./,"").trim();
-    else t=t.replace(/\[Model\]/g, ctx.model);
-    if(!hasDialogueCues(raw)) t=t.replace(/and format any dialogue into the most AI friendly format\./," (dialogue formatting not needed for this prompt).");
-    if(ctx.duration && ctx.mediaType.includes("video")) t+=`\nVideo length: ${ctx.duration} seconds — add timestamp directions accordingly.`;
+    else t=t.replace(/\n?(?:The (?:video|image) will be generated at) \[resolution\] and \[aspect ratio\][^\n]*/,"");
+    if(ctx.hasAudio) t=t.replace("[audio clause]",`if ${ctx.model} includes audio generation, insert appropriate sound effect cues and format any dialogue into the most AI friendly format.`);
+    else t=t.replace(/\n\[audio clause\]/,"");
+    if(ctx.hasAudio && !hasDialogueCues(raw)) t=t.replace(/and format any dialogue into the most AI friendly format\./," (dialogue formatting not needed for this prompt).");
+    if(ctx.duration && video) t+=`\nVideo length: ${ctx.duration} seconds — add timestamp directions accordingly.`;
     const fam=(ctx.model||"").toLowerCase();
     let preset=MODEL_PRESETS.default;
     if(fam.includes("seedance")) preset=MODEL_PRESETS.seedance;
@@ -2317,8 +2387,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
         row.draggable=true; row.dataset.idx=idx;
         row.innerHTML=`<span class="cursor-move text-zinc-600 pt-2"><i class="fas fa-grip-lines"></i></span>
           <div class="flex-1 space-y-1">
-            <input data-k="baseUrl" value="${p.baseUrl||""}" placeholder="https://api.venice.ai/api/v1" class="input text-xs w-full">
+            <input data-k="baseUrl" value="${p.baseUrl||""}" placeholder="https://api.experientiallabs.ai/v1" class="input text-xs w-full">
             <input data-k="model" value="${p.model||""}" placeholder="model id" class="input text-xs w-full">
+            <input data-k="apiKeyEnv" value="${p.apiKeyEnv||""}" placeholder="env var for this host (e.g. EXPLABS_API_KEY)" class="input text-xs w-full">
             <input data-k="apiKey" type="password" value="${p.apiKey==="***"?"":(p.apiKey||"")}" placeholder="${p.apiKey==="***"?"•••• (saved)":"API key"}" class="input text-xs w-full">
           </div>
           <button data-remove="${idx}" class="icon-btn text-red-500" title="Remove"><i class="fas fa-trash"></i></button>`;
@@ -2328,7 +2399,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         btn.addEventListener("click",()=>{
           const i=parseInt(btn.dataset.remove,10);
           cfg.providers.splice(i,1);
-          if(!cfg.providers.length) cfg.providers.push({baseUrl:"https://api.venice.ai/api/v1",model:"venice-uncensored",apiKey:""});
+          if(!cfg.providers.length) cfg.providers.push({provider:"venice",apiKeyEnv:"VENICE_API_KEY",baseUrl:"https://api.venice.ai/api/v1",model:"venice-uncensored",apiKey:""});
           saveLLMConfig(cfg); renderSettings();
         });
       });
@@ -2379,13 +2450,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const outPre=document.getElementById(outputId);
     if(outPre){outPre.value=""; outPre.placeholder="Thinking — fail-fast 12s per provider...";}
     const metaPre=document.getElementById(metaId);
-    if(metaPre) metaPre.textContent="● thinking — contacting Venice → OpenRouter chain...";
+    if(metaPre) metaPre.textContent="● thinking — contacting Experimental Labs → OpenRouter → Venice chain...";
     const systemPrompt=buildSystemPrompt(raw,ctx);
     // Try backend first (if Worker is deployed, it handles failover + streaming)
     try{
       const ctrl=new AbortController();
       const to=setTimeout(()=>ctrl.abort(), 50000);
-      const res=await fetch("/api/enhance",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({rawPrompt:raw, modelId:ctx.model, params:(typeof currentParams!=='undefined'?currentParams:window.currentParams)||{}}), signal:ctrl.signal});
+      // Send the modality this page derived, so the Worker does not have to re-guess
+      // from the id. The Worker validates the value and ignores anything else.
+      const reqModality=deriveModality((typeof currentModel!=='undefined'?currentModel:window.currentModel))==="video"?"video":"image";
+      const res=await fetch("/api/enhance",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({rawPrompt:raw, modelId:ctx.model, modality:reqModality, params:(typeof currentParams!=='undefined'?currentParams:window.currentParams)||{}}), signal:ctrl.signal});
       clearTimeout(to);
       if(res.ok){
         const ct=res.headers.get("content-type")||"";
@@ -2411,9 +2485,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
               try{
                 const j=JSON.parse(d);
                 if(j.history_id){ window.lastEnhancementId=j.history_id; continue; }
-                const delta=j.choices?.[0]?.delta?.content||"";
-                const think=j.choices?.[0]?.delta?.reasoning_content||"";
-                const chunk=delta||think;
+                // content only. Falling back to reasoning_content put the model's
+                // chain-of-thought into the textarea the user then copies.
+                const chunk=j.choices?.[0]?.delta?.content||"";
                 if(chunk){
                   full+=chunk;
                   if(out){out.value=full; out.scrollTop=out.scrollHeight;}
@@ -2435,6 +2509,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
           if(other) other.value=full;
         }
         if(!full) throw new Error("Empty LLM response");
+        // Same guard as the direct path below. The Worker withholds a history_id
+        // for a refusal, but this page has its own localStorage record and must
+        // not file one either.
+        if(isRefusalText(full)) throw new Error("LLM refused to enhance — falling through to the direct chain");
         if(metaPre) metaPre.textContent=`via ${providerUsed} / ${modelUsed} — ${full.length} chars`;
         const otherMeta=document.getElementById(isMobile?"enhancerMeta":"enhancerMetaMobile");
         if(otherMeta) otherMeta.textContent=metaPre?metaPre.textContent:"";
@@ -2457,15 +2535,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     let lastErr=null;
     for(const p of cfg.providers){
       const baseUrl=(p.baseUrl||"https://openrouter.ai/api/v1").replace(/\/$/,"");
-      const isVenice=baseUrl.includes("venice.ai");
+      // apiKeyEnv names the secret for this host; the venice.ai substring sniff
+      // is only the legacy fallback for entries saved before the field existed.
+      // Without this, every non-Venice host here would authenticate with the
+      // OpenRouter key.
+      const named=p.apiKeyEnv||(baseUrl.includes("venice.ai")?"VENICE_API_KEY":"OPENROUTER_API_KEY");
       let apiKey=p.apiKey||"";
       // Try to fall back to localStorage keys if empty (shared env injection for local dev)
       if(!apiKey){
-        try{
-          const envVenice=localStorage.getItem("VENICE_API_KEY")||"";
-          const envOpen=localStorage.getItem("OPENROUTER_API_KEY")||"";
-          apiKey=isVenice?envVenice:envOpen;
-        }catch{}
+        try{ apiKey=localStorage.getItem(named)||""; }catch{}
       }
       if(!apiKey){
         // also try to read from replicate .env via prompt? skip
@@ -2493,6 +2571,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const j=await r.json();
         const content=j.choices?.[0]?.message?.content||j.choices?.[0]?.delta?.content||"";
         if(!content){ lastErr="Empty LLM response from "+p.model; continue; }
+        // Same refusal guard the Worker applies before persisting — a refusal is
+        // a 200 with prose, so without this it is saved into localStorage as a
+        // successful enhancement and shown to the user as one.
+        if(isRefusalText(content)){ lastErr="LLM refused to enhance ("+p.model+") — tried next provider"; continue; }
         const out=document.getElementById(outputId);
         if(out){ out.value=content; out.scrollTop=out.scrollHeight; }
         const other=document.getElementById(isMobile?"enhancerOutput":"enhancerOutputMobile");
@@ -2571,7 +2653,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     byId("settingsBackdrop")&&byId("settingsBackdrop").addEventListener("click", closeSettings);
     byId("btnAddProvider")&&byId("btnAddProvider").addEventListener("click",()=>{
       getLLMConfig().then(cfg=>{
-        cfg.providers.push({baseUrl:"https://openrouter.ai/api/v1", model:"", apiKey:""});
+        cfg.providers.push({provider:"openrouter", apiKeyEnv:"OPENROUTER_API_KEY", baseUrl:"https://openrouter.ai/api/v1", model:"", apiKey:""});
         // persist immediately so render sees it
         localStorage.setItem(LS_CFG, JSON.stringify(cfg));
         localStorage.setItem("muapi_llm_config", JSON.stringify(cfg));
@@ -2604,7 +2686,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }catch{}
       await saveLLMConfig(next);
       const s=document.getElementById("settingsStatus");
-      if(s){ s.textContent="Saved — will try Venice primary → uncensored → inkling → openrouter/free fail-fast"; s.classList.remove("hidden"); setTimeout(()=>s.classList.add("hidden"),2000); }
+      if(s){ s.textContent="Saved — will try explabs → lfm-2.5 → openrouter/free → venice, fail-fast"; s.classList.remove("hidden"); setTimeout(()=>s.classList.add("hidden"),2000); }
       closeSettings();
       toast("LLM settings saved","success");
     });

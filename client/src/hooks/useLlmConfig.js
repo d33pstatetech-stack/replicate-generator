@@ -3,7 +3,10 @@ import { fetchLlmConfig, saveLlmConfig } from '../api';
 import { DEFAULT_LLM } from '../enhancer';
 
 const KEY = 'replicate_llm_config';
-const EMPTY_ROW = { baseUrl: 'https://openrouter.ai/api/v1', model: '', apiKey: '' };
+// New rows default to OpenRouter's secret name; the field exists because key
+// resolution used to sniff the URL for 'venice.ai' and everything else got the
+// OpenRouter key.
+const EMPTY_ROW = { baseUrl: 'https://openrouter.ai/api/v1', model: '', apiKeyEnv: 'OPENROUTER_API_KEY', apiKey: '' };
 
 // LLM fallback-chain config: localStorage wins, backend as fallback/mirror.
 export default function useLlmConfig() {

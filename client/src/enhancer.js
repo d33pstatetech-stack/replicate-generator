@@ -1,10 +1,16 @@
 // Enhancer core ported from vanilla enhancer.js — pure functions only.
 
+// Client mirror of the Worker's DEFAULT_LLM_PROVIDERS (src/worker.js). Array
+// order is the priority order. `apiKeyEnv` names the secret each host needs:
+// the old venice.ai substring sniff authenticated every other host with the
+// OpenRouter key, so this must stay in step with the worker list rather than
+// being a second, independent chain.
 export const DEFAULT_LLM = {
   providers: [
-    { baseUrl: 'https://api.venice.ai/api/v1', model: 'venice-uncensored', apiKey: '' },
-    { baseUrl: 'https://openrouter.ai/api/v1', model: 'thinkingmachines/inkling:free', apiKey: '' },
-    { baseUrl: 'https://openrouter.ai/api/v1', model: 'openrouter/free', apiKey: '' },
+    { provider: 'explabs', apiKeyEnv: 'EXPLABS_API_KEY', baseUrl: 'https://api.experientiallabs.ai/v1', model: 'glm-5.3-flash-abliterated', apiKey: '' },
+    { provider: 'openrouter', apiKeyEnv: 'OPENROUTER_API_KEY', baseUrl: 'https://openrouter.ai/api/v1', model: 'liquid/lfm-2.5-2.6b:free', apiKey: '' },
+    { provider: 'openrouter', apiKeyEnv: 'OPENROUTER_API_KEY', baseUrl: 'https://openrouter.ai/api/v1', model: 'openrouter/free', apiKey: '' },
+    { provider: 'venice', apiKeyEnv: 'VENICE_API_KEY', baseUrl: 'https://api.venice.ai/api/v1', model: 'venice-uncensored', apiKey: '' },
   ],
 };
 
@@ -16,28 +22,66 @@ export const MODEL_PRESETS = {
   default: ``,
 };
 
-const TEMPLATE = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. This should include determining the optimal prompt length, or at least the ideal minimum and maximum word counts, determining whether the model excels with keyword based prompts or full narrative descriptions, what types of prompts work best (describe everything vs just describe movement, etc), whether it accepts timestamp direction (at 00:05, do this, at 00:10 do that, etc) and if it does add these timestamp directions based on the total length of the video (as input by the user) and estimating the time it would take for the described actions in the scene to take place, determine if a certain camera lens or videography style works well if called out for the specific model, translate any vague camera movement directions into videographer jargon (dolly out, orbital, chase cam, etc).  The video will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model.  \nif [Model] includes audio generation, insert appropriate sound effect cues and format any dialogue into the most AI friendly format.`;
+/* Modality-aware templates. Mirrors ENHANCER_TEMPLATE_IMAGE / _VIDEO in
+   src/worker.js: one template cannot serve both, because the guidance itself
+   (timestamps, camera-movement jargon, duration budgets) has to differ. */
+export const TEMPLATE_IMAGE = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. Decide the optimal length for this model (or at least a sensible minimum and maximum word count) and whether it excels with keyword/tag prompts or with full narrative description. Write it as a STILL IMAGE: describe the subject and its appearance, the composition and framing, the lens or perspective, the lighting, the colour palette, the medium and style. Order the description subject first, then scene and background, then style and technical tags.
+STRICT - this is one frozen frame. Do NOT output timestamps or timecodes (no "at 00:05", no "0s-3s"). Do NOT describe camera movement (dolly, pan, tilt, orbit, crane, tracking, handheld, push in, pull out). Do NOT reference duration, frame count, cuts, shot lists or any sequence. Do NOT use motion verbs that imply a timeline. Where the raw prompt contains movement or timing, convert it into the static pose, expression, framing and lighting that capture the same idea in a single image.
+The image will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model).
+[audio clause]`;
+
+export const TEMPLATE_VIDEO = `refine the following [Media Generation Type] prompt, specifically to optimize it for [Model]. This should include determining the optimal prompt length, or at least the ideal minimum and maximum word counts, determining whether the model excels with keyword based prompts or full narrative descriptions, what types of prompts work best (describe everything vs just describe movement, etc), whether it accepts timestamp direction (at 00:05, do this, at 00:10 do that, etc) and if it does add these timestamp directions based on the total length of the video (as input by the user) and estimating the time it would take for the described actions in the scene to take place, determine if a certain camera lens or videography style works well if called out for the specific model, translate any vague camera movement directions into videographer jargon (dolly out, orbital, chase cam, etc). The video will be generated at [resolution] and [aspect ratio] (only include this if it would benefit the prompt for this model).
+[audio clause]`;
+
+export function isVideoMediaType(mediaType) {
+  return /video/i.test(String(mediaType || ''));
+}
 
 export function hasDialogueCues(s) {
   return /["\u201c\u201d].*["\u201c\u201d]|dialogue|says\s+["\u201c]|speaking|voice:/i.test(s || '');
 }
 
+/** Coarse modality: 'video' | 'image' | 'audio' | '3d' | 'text'. */
+export function deriveModality(model) {
+  if (!model) return 'image';
+  const id = String(model.id || '').toLowerCase();
+  const cat = String(model.category || '').toLowerCase();
+  // `group` is already resolved from D1 group_of by lib/models.ts
+  // (normalizeGroup), so it carries the harvested catalogue's authority.
+  const group = String(model.group_of || model.group || '').toLowerCase();
+  if (['video', 'image', 'audio', '3d', 'text'].includes(group)) return group;
+  if (/\b(audio|speech|tts|voice|music|song|whisper|transcri\w*)\b/.test(cat)) return 'audio';
+  if (/\b(3d|three-?d|mesh|voxel)\b/.test(cat)) return '3d';
+  if (/image[-_. ]?to[-_. ]?video|video[-_. ]?to[-_. ]?video|text[-_. ]?to[-_. ]?video|reference[-_. ]?to[-_. ]?video|\bvideo\b/.test(cat)) return 'video';
+  if (/image[-_. ]?to[-_. ]?image|text[-_. ]?to[-_. ]?image|\bimage\b/.test(cat)) return 'image';
+  // Explicit flow tokens before family names: "wan-2.7-image-pro" is an image
+  // model whose OWNER is "wan-video".
+  if (/image[-_. ]?to[-_. ]?image|\bi2i\b/.test(id)) return 'image';
+  if (/(reference|image|text|video)[-_. ]?to[-_. ]?video|\b(i2v|t2v|v2v)\b/.test(id)) return 'video';
+  if (/image[-_. ]?to[-_. ]?image|text[-_. ]?to[-_. ]?image|\b(i2i|t2i)\b/.test(id)) return 'image';
+  if (/\b(wan|hunyuan|ltx|kling|mochi|cogvideo|svd|animatediff|seedance|veo|hailuo|minimax|framepack|skyreels)\b/.test(id)) return 'video';
+  if (/\b(flux|sdxl|stable[-_. ]?diffusion|qwen[-_. ]?image|z[-_. ]?image|krea|ideogram|recraft|hidream|dall|playground|photomaker|shuttle|juggernaut|lumina|kolors)\b/.test(id)) return 'image';
+  if (/\b(audio|speech|tts|voice|music|song|whisper|mmaudio)\b/.test(id)) return 'audio';
+  if (/\b(triposr|shap-e|trellis|3d)\b/.test(id)) return '3d';
+  // Conservative: never call an unknown model a video model.
+  return 'image';
+}
+
 export function deriveMediaType(model) {
-  if (!model) return 'text-to-video';
-  const id = (model.id || '').toLowerCase();
-  const cat = (model.category || '').toLowerCase();
-  if (id.includes('reference-to-video')) return 'reference-to-video';
-  if (id.includes('image-to-video') || id.includes('-i2v') || id.includes('i2v')) return 'image-to-video';
-  if (id.includes('text-to-video') || id.includes('-t2v')) return 'text-to-video';
-  if (id.includes('image-to-image') || id.includes('-i2i') || cat.includes('image to image')) return 'image-to-image';
-  if (cat.includes('text to image')) return 'text-to-image';
-  if (cat.includes('video to video') || cat.includes('video: edit')) return 'video-to-video';
-  if (cat.includes('audio')) return 'audio generation';
-  if (cat.includes('3d')) return 'text-to-3d';
-  // Static Replicate catalog fallback: group is 'image' | 'video'.
-  if (model.group === 'image') return 'text-to-image';
-  if (model.group === 'video') return 'text-to-video';
-  return cat.replace(/ /g, '-') || 'text-to-video';
+  if (!model) return 'text-to-image';
+  const modality = deriveModality(model);
+  const hay = `${String(model.id || '')} ${String(model.category || '')}`.toLowerCase();
+  if (modality === 'video') {
+    if (/reference[-_. ]?to[-_. ]?video/.test(hay)) return 'reference-to-video';
+    if (/image[-_. ]?to[-_. ]?video|\bi2v\b/.test(hay)) return 'image-to-video';
+    if (/video[-_. ]?to[-_. ]?video|\bv2v\b|video[-_. ]?edit/.test(hay)) return 'video-to-video';
+    return 'text-to-video';
+  }
+  if (modality === 'audio') return 'audio-generation';
+  if (modality === '3d') return 'text-to-3d';
+  if (modality === 'text') return 'text';
+  if (/image[-_. ]?to[-_. ]?image|\bi2i\b/.test(hay)) return 'image-to-image';
+  return 'text-to-image';
 }
 
 export function getEnhancerContext(model, params = {}, schema = {}) {
@@ -48,13 +92,18 @@ export function getEnhancerContext(model, params = {}, schema = {}) {
     if (s && s.default !== undefined) def[k] = s.default;
   }
   const id = (model.id || '').toLowerCase();
+  const modality = deriveModality(model);
   return {
     model: model.id,
+    modality,
     mediaType: deriveMediaType(model),
     aspectRatio: params.aspect_ratio || def.aspect_ratio || null,
     resolution: params.resolution || (params.width && params.height ? `${params.width}x${params.height}` : null) || def.resolution || null,
     duration: params.duration || def.duration || null,
-    hasAudio: !!(id.includes('seedance') || id.includes('wan') || id.includes('audio') || (model.group_of && model.group_of.includes('audio')) || (schema?.properties && schema.properties.audio_url)),
+    // Audio is a video/audio concept. Previously any id containing "audio" or
+    // "wan" set this for every modality, so an image model whose id happened to
+    // match would be told to insert sound-effect cues.
+    hasAudio: modality === 'audio' || (modality === 'video' && (id.includes('seedance') || id.includes('wan') || id.includes('audio') || !!(schema?.properties && schema.properties.audio_url))),
   };
 }
 
@@ -64,24 +113,27 @@ export function contextPreviewString(ctx) {
 }
 
 export function buildSystemPrompt(raw, ctx) {
-  let t = TEMPLATE.replace('[Media Generation Type]', ctx.mediaType).replace('[Model]', ctx.model);
+  const video = isVideoMediaType(ctx.mediaType);
+  let t = (video ? TEMPLATE_VIDEO : TEMPLATE_IMAGE)
+    .replace('[Media Generation Type]', ctx.mediaType)
+    .replace('[Model]', ctx.model);
   const resAspect = [];
   if (ctx.resolution) resAspect.push(ctx.resolution);
   if (ctx.aspectRatio) resAspect.push(ctx.aspectRatio);
   if (resAspect.length) {
     t = t.replace('[resolution] and [aspect ratio]', resAspect.join(' and '));
   } else {
-    t = t.replace(/The video will be generated at \[resolution\] and \[aspect ratio\][^\n]*\n?/, '');
+    t = t.replace(/\n?(?:The (?:video|image) will be generated at) \[resolution\] and \[aspect ratio\][^\n]*/, '');
   }
-  if (!ctx.hasAudio) {
-    t = t.replace(/if \[Model\] includes audio generation,.*format\./, '').trim();
+  if (ctx.hasAudio) {
+    t = t.replace('[audio clause]', `if ${ctx.model} includes audio generation, insert appropriate sound effect cues and format any dialogue into the most AI friendly format.`);
   } else {
-    t = t.replace(/\[Model\]/g, ctx.model);
+    t = t.replace(/\n\[audio clause\]/, '');
   }
-  if (!hasDialogueCues(raw)) {
+  if (ctx.hasAudio && !hasDialogueCues(raw)) {
     t = t.replace(/and format any dialogue into the most AI friendly format\./, ' (dialogue formatting not needed for this prompt).');
   }
-  if (ctx.duration && ctx.mediaType.includes('video')) {
+  if (ctx.duration && video) {
     t += `\nVideo length: ${ctx.duration} seconds — add timestamp directions accordingly.`;
   }
   const fam = (ctx.model || '').toLowerCase();
