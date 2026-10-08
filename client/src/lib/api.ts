@@ -21,6 +21,7 @@ import {
   deleteCustomLora as apiDeleteCustomLora,
   fetchLoraLibrary as apiLoraLibrary,
   fetchLoraVerifications as apiLoraVerifications,
+  fetchLoraEvidence as apiLoraEvidence,
 } from '../api';
 import { schemaDefaults } from '../models';
 import { applySchema, toModel } from './models';
@@ -210,6 +211,17 @@ export async function fetchLibrary(): Promise<any[] | null> {
 export async function fetchVerifications(): Promise<any[] | null> {
   try {
     return await apiLoraVerifications();
+  } catch {
+    return null;
+  }
+}
+
+/* K5 — LoRA↔model pairs proven by 4-5★ rated runs. The whole payload, so
+   setRunEvidence can install only the rows the Worker already flagged green.
+   Fail-soft → null, which leaves every compatibility verdict as it was. */
+export async function fetchLoraEvidence(): Promise<any | null> {
+  try {
+    return await apiLoraEvidence();
   } catch {
     return null;
   }
