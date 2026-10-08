@@ -28,6 +28,8 @@
  *                                                   and the download fails
  */
 
+import { normName } from '../lora-compat';
+
 export type App = 'muapi' | 'wavespeed' | 'replicate';
 
 /** Shapes a provider accepts, in the order we prefer to try them. */
@@ -111,12 +113,24 @@ function appName(app: App) {
    empty means "no central data" — isConfirmed() falls back to the baked
    CONFIRMED_LORA_RUNS below, so behavior is identical when central is
    unavailable.
+   Keys are stored with the id halves NORMALISED (see normName), so the
+   lookup stays a single Set probe even when the incoming id is spelled with
+   different separators than the one the key was built from.
    ------------------------------------------------------------------ */
 let centralConfirmed: Set<string> | null = null;
 
+/** `${app}|${model}|${lora}` with the id halves normalised. `app` is left
+ *  verbatim — it is our own fixed vocabulary, never a provider spelling. */
+function confirmKey(app: string, modelId: string, loraId: string): string {
+  return `${app}|${normName(modelId)}|${normName(loraId)}`;
+}
+
 /** Install central confirmed keys (`null` clears back to baked-only). */
 export function setCentralConfirmed(keys: string[] | null): void {
-  centralConfirmed = keys == null ? null : new Set(keys);
+  centralConfirmed = keys == null ? null : new Set(keys.map((k) => {
+    const [app = '', ...rest] = String(k).split('|');
+    return confirmKey(app, rest[0] ?? '', rest.slice(1).join('|'));
+  }));
 }
 
 /* ------------------------------------------------------------------
@@ -197,26 +211,37 @@ export const CONFIRMED_LORA_RUNS: { model: string; loras: string[]; apps: App[] 
   },
 ];
 
-/** True when this exact model + LoRA pair has produced a real image. */
+/**
+ * True when this exact model + LoRA pair has produced a real image.
+ *
+ * Both sides are compared through normName(), the same normalisation the
+ * compatibility classifier uses, so a pair still counts as confirmed when one
+ * side arrives with different separator styling (`flux 2 klein 9b` vs
+ * `flux-2-klein-9b`). Matching stayed exact-in-substance: normName only folds
+ * `.`/`-`/`_`/whitespace, it never makes two different models compare equal.
+ */
 export function isConfirmed(app: App, modelId: string | null | undefined, loraId: string): boolean {
   if (!modelId) return false;
+  const mkey = normName(modelId);
+  const lkey = normName(loraId);
+  if (!mkey) return false;
   // Central verifications first (additive override; absent/empty === baked-only,
   // so behavior is identical when central is unavailable). Baked rows remain as
   // fallback even when central is present, so pre-central pairs keep badges.
   if (centralConfirmed && centralConfirmed.size > 0) {
-    if (centralConfirmed.has(`${app}|${modelId}|${loraId}`)) return true;
+    if (centralConfirmed.has(confirmKey(app, mkey, lkey))) return true;
     // CivitAI entries are stored under either the id or the resolved URL.
     if (/^civitai:/.test(loraId)) {
       const n = loraId.replace(/^civitai:/, '');
       for (const k of centralConfirmed) {
-        if (k.startsWith(`${app}|${modelId}|`) && k.includes(n)) return true;
+        if (k.startsWith(`${app}|${mkey}|`) && k.includes(n)) return true;
       }
     }
   }
   for (const row of CONFIRMED_LORA_RUNS) {
-    if (row.model !== modelId) continue;
+    if (normName(row.model) !== mkey) continue;
     if (!row.apps.includes(app)) continue;
-    if (row.loras.includes(loraId)) return true;
+    if (row.loras.some((x) => normName(x) === lkey)) return true;
     // CivitAI entries are stored under either the id or the resolved URL.
     if (/^civitai:/.test(loraId)) {
       const n = loraId.replace(/^civitai:/, '');
