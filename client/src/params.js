@@ -130,6 +130,17 @@ export function buildSubmitParams(prompt, values, schema) {
   if (schema?.properties) {
     for (const [k, spec] of Object.entries(schema.properties)) {
       if (params[k] === undefined) continue;
+      // Snap a hand-typed value onto the schema's enum, case-insensitively.
+      // Replicate rejects "Jpg" for an enum of ["webp","jpg","png"], and a
+      // dropdown makes the mistake impossible — but enum-less params and
+      // pasted values still reach here, so normalise rather than trust.
+      if (Array.isArray(spec.enum) && spec.enum.length) {
+        const want = spec.enum.find((e) => String(e) === params[k]);
+        if (want === undefined) {
+          const hit = spec.enum.find((e) => String(e).toLowerCase() === String(params[k]).trim().toLowerCase());
+          if (hit !== undefined) params[k] = hit;
+        }
+      }
       if (spec.type === 'integer') {
         const n = parseInt(params[k], 10);
         if (!Number.isNaN(n)) params[k] = n;

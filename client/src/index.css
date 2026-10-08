@@ -105,6 +105,12 @@ body {
 .scroll-y {
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Declare the axis explicitly. Without it a touch gesture that starts over a
+     nested scroller is left to the browser's default disambiguation, which on
+     iOS can decline to pan the inner element at all. pan-y also stops these
+     vertical scrollers from swallowing horizontal page swipes. */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--color-line2) transparent;
 }

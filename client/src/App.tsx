@@ -558,7 +558,15 @@ function Console() {
       >
         {mid ? (
           <>
-            {catalogue}
+            {/* The catalogue needs a bounded height on mobile. Its virtual list
+                sets an explicit inner height (rows x 60px), and a grid item
+                sizes to its content, so unbounded the panel grows to the full
+                list height, the inner scroller has no overflow of its own, and
+                touch scrolling inside it does nothing while the page cannot
+                scroll either (the shell is `h-dvh overflow-hidden`). Height is
+                capped here on mobile only; from `lg` the grid track constrains
+                it, matching how `results` is handled below. */}
+            <div className="h-[60dvh] min-h-0 lg:h-auto">{catalogue}</div>
             <div className="scroll-y min-h-0">{composer}</div>
             {wide && results}
           </>

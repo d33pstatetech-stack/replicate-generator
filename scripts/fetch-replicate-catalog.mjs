@@ -122,17 +122,41 @@ function groupFrom(name, collections) {
   return 'other';
 }
 
-/** Collapse a version's OpenAPI document down to the input schema. */
+/**
+ * Collapse a version's OpenAPI document down to a self-contained input schema.
+ *
+ * The /v1/collections payload and the /v1/models/:owner/:name/versions/:id
+ * payload describe the SAME version in different shapes. Collections inline
+ * leaf definitions as `allOf: [{ $ref: ... }]` pointing at sibling
+ * `components.schemas` entries; the versions endpoint inlines them as a plain
+ * `enum`. Verified on flux-schnell c846a699:
+ *
+ *   collections -> aspect_ratio: { allOf: [{$ref: "#/components/schemas/aspect_ratio"}], default: "1:1" }
+ *   versions    -> aspect_ratio: { enum: ["1:1","16:9",...], type: "string", default: "1:1" }
+ *
+ * Harvesting from collections therefore loses every enum value unless the refs
+ * are resolved — which is why the first pass produced 11,961 params with a 0%
+ * enum rate and every dropdown in the UI collapsed to a free-text box.
+ *
+ * `components` is retained so refs can still be resolved here, making this
+ * robust to whichever shape a given model is served in.
+ */
 function inputSchema(version) {
   const doc = version?.openapi_schema;
   if (!doc || typeof doc !== 'object') return null;
-  const input = doc?.components?.schemas?.Input;
+  const components = doc?.components?.schemas;
+  const input = components?.Input;
   if (!input || typeof input !== 'object') return null;
-  // Replicate wraps non-string leaf schemas oddly in some responses; keep only
-  // what the form renderer understands.
   const props = input.properties;
   if (!props || typeof props !== 'object') return null;
-  return { type: input.type || 'object', title: input.title || 'Input', required: input.required || [], properties: props };
+  return {
+    type: input.type || 'object',
+    title: input.title || 'Input',
+    required: input.required || [],
+    properties: props,
+    // Only carried when refs are present, to keep the stored row small.
+    ...(components && JSON.stringify(props).includes('$ref') ? { components } : {}),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -149,6 +173,35 @@ const EXTRA_MODELS = [
   'd33pstatetech-stack/aznten_replicate',
   'd33pstatetech-stack/aznten-flux.1-dev-replicate',
 ];
+
+/**
+ * Replace `allOf: [{ $ref }]` / bare `$ref` with the referenced leaf, in place.
+ *
+ * Replicate's OpenAPI dialect puts enums in sibling `components.schemas`
+ * entries and references them, so a param arrives as
+ * `{ allOf: [{ $ref: "#/components/schemas/aspect_ratio" }], default: "1:1" }`.
+ * The form renderer checks `spec.enum`, so without this every dropdown
+ * degrades to a free-text field.
+ *
+ * The ref'd leaf supplies the type and enum; keys already present on the
+ * parent (default, description, x-order, title) win, because they are the
+ * parameter-level annotations rather than the shared leaf's.
+ */
+function resolveNode(spec, components) {
+  if (!spec || typeof spec !== 'object') return spec;
+  const ref =
+    (typeof spec.$ref === 'string' && spec.$ref) ||
+    (Array.isArray(spec.allOf) && spec.allOf.length === 1 && typeof spec.allOf[0]?.$ref === 'string' && spec.allOf[0].$ref) ||
+    null;
+  if (!ref) return spec;
+  const name = String(ref).split('/').pop();
+  const leaf = components?.[name];
+  if (!leaf || typeof leaf !== 'object') return spec;
+  const merged = { ...leaf, ...spec };
+  delete merged.$ref;
+  delete merged.allOf;
+  return merged;
+}
 
 async function main() {
   const cols = await api('/v1/collections');
@@ -210,6 +263,30 @@ async function main() {
     }
     if (fetched % 10 === 0) process.stdout.write(`  ${fetched}/${slugs.length} collections, ${byName.size} models\n`);
   }
+
+  // Resolve `$ref` leaves locally. The collections payload references enum
+  // definitions that live in sibling `components.schemas` entries, and those
+  // references are kept in the stored schema so they can be resolved here
+  // without another request. Verified against the /versions endpoint, which
+  // serves the same version with the leaves already inlined — the two agree.
+  let local = 0;
+  for (const r of byName.values()) {
+    if (!r.schema || !r.schema.components) continue;
+    const props = r.schema.properties;
+    // resolveNode returns a new object, so the result must be written back —
+    // calling it for effect only leaves the $ref in place.
+    let changed = false;
+    for (const key of Object.keys(props)) {
+      const merged = resolveNode(props[key], r.schema.components);
+      if (merged !== props[key]) {
+        props[key] = merged;
+        changed = true;
+      }
+    }
+    delete r.schema.components;
+    if (changed) local++;
+  }
+  console.log(`\nresolved $refs locally for ${local} model(s)`);
 
   const models = [...byName.values()]
     .map((r) => ({ ...r, group_of: groupFrom(`${r.owner}/${r.repo}`, [...r.collections]), collections: [...r.collections].sort() }))

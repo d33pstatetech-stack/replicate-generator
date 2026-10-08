@@ -123,7 +123,7 @@ export default function CatalogPane({
   return (
     <section
       aria-label="Model catalogue"
-      className="panel flex min-h-0 flex-col overflow-hidden"
+      className="panel flex h-full min-h-0 flex-col overflow-hidden"
     >
       <div className="flex flex-col gap-2.5 border-b border-line p-3">
         <div className="flex items-center gap-2">
