@@ -2258,28 +2258,36 @@ The image will be generated at [resolution] and [aspect ratio] (only include thi
 
   function hasDialogueCues(s){ return /["\u201c\u201d].*["\u201c\u201d]|dialogue|says\s+["\u201c]|speaking|voice:/i.test(s); }
   function isVideoMediaType(mt){ return /video/i.test(String(mt||"")); }
-  // Refusal guard. Mirrors isRefusalText in src/worker.js: a refusal is an HTTP
-  // 200 with prose, so nothing else stops it being stored as a successful
-  // enhancement. Narrow on purpose — a refusal opener in the first 200 chars,
-  // OR an "as an AI" statement in a response of 200 chars or less — and nothing
-  // over 400 chars is ever treated as a refusal, so short legitimate prompts
-  // survive.
-  const REFUSAL_OPENERS=[
-    /^\s*(?:i\s+(?:can(?:'|no)?t|won(?:'|no)?t)|i'?m\s+(?:sorry|afraid|unable)|sorry|unfortunately|i\s+must\s+decline|i\s+have\s+to\s+decline|as\s+an\s+ai\b|i'?m\s+not\s+able\s+to\b|it\s+is\s+not\s+appropriate|it'?s\s+not\s+appropriate)/i,
-    /\bi\s+(?:can(?:'|no)?t|won(?:'|no)?t)\s+(?:help|assist|comply|fulfil|fulfill|provide|create|generate|write|process)\b/i,
-    /\bi\s+(?:must|have\s+to)\s+(?:decline|refuse)\b/i,
-    /\bi\s+can(?:'|no)?t\s+(?:help|assist|comply|fulfil|fulfill|provide|create|generate|write|process)\s+(?:with|that|this)\b/i,
+  // Refusal guard. Mirrors enhancementRejectReason in src/worker.js: a refusal
+  // is an HTTP 200 with prose, so nothing else stops it being stored as a
+  // successful enhancement. Character-for-character the muapi/wavespeed shape:
+  // a first-person refusal opener inside the first 60 chars with no quote
+  // before it, plus a length floor relative to the raw prompt. There is NO
+  // upper length cap — the previous 400-char ceiling let a verbose refusal
+  // preamble persist as a success.
+  const ENHANCE_MIN_NONSPACE_CHARS=24;
+  const ENHANCE_REFUSAL_OPENERS=[
+    "i'm sorry",'i am sorry','sorry, but','i apologize','i apologise',
+    'i cannot','i can not',"i can't",'i cant',"i won't",'i will not',
+    "i'm not able to",'i am not able to',"i'm unable to",'i am unable to',
+    'i must decline','i have to decline','i must refuse','i cannot assist',
+    "i can't assist",'i cannot help',"i can't help",'i cannot provide',
+    "i can't provide",'i cannot fulfill',"i can't fulfill",'i cannot comply',
+    "i can't comply",'i do not feel comfortable',"i don't feel comfortable",
+    'i must inform you','as an ai language model',"i'm an ai",'i am an ai',
   ];
-  const REFUSAL_META=[
-    /\bas\s+an?\s+ai\b/i,
-    /\b(?:violat\w+|against|in\s+conflict\s+with)\s+(?:my|our|the)\s+(?:polic\w+|guideline\w*|terms|rules|safety)/i,
-    /\bi(?:'|’)?m\s+not\s+(?:able|permitted)\s+to\b/i,
-  ];
-  function isRefusalText(text){
-    const t=String(text||"").trim();
-    if(!t||t.length>400) return false;
-    if(REFUSAL_OPENERS.some(re=>re.test(t.slice(0,200)))) return true;
-    return t.length<=200 && REFUSAL_META.some(re=>re.test(t));
+  function enhancementRejectReason(enhanced,rawPrompt){
+    const text=String(enhanced||"").trim();
+    if(!text) return 'empty';
+    const norm=text.toLowerCase().replace(/[\u2018\u2019]/g,"'");
+    const head=norm.slice(0,60).replace(/^[\s"'`*_>(\[-]+/,'');
+    const openerAt=ENHANCE_REFUSAL_OPENERS.find(p=>head.includes(p));
+    if(openerAt && !/["'\u201c\u201d]/.test(norm.slice(0,norm.indexOf(openerAt)))) return 'refusal';
+    const nonSpace=text.replace(/\s+/g,'').length;
+    const rawLen=String(rawPrompt||"").trim().length;
+    if(nonSpace<ENHANCE_MIN_NONSPACE_CHARS && rawLen>=ENHANCE_MIN_NONSPACE_CHARS) return 'too_short';
+    if(rawLen>=80 && text.length<rawLen*0.4) return 'too_short';
+    return null;
   }
   // Mirrors deriveModalityWorker in src/worker.js. group_of (via the model's
   // group) wins, then Replicate's category string, then an id ladder. The
@@ -2512,7 +2520,7 @@ The image will be generated at [resolution] and [aspect ratio] (only include thi
         // Same guard as the direct path below. The Worker withholds a history_id
         // for a refusal, but this page has its own localStorage record and must
         // not file one either.
-        if(isRefusalText(full)) throw new Error("LLM refused to enhance — falling through to the direct chain");
+        if(enhancementRejectReason(full,raw)) throw new Error("LLM refused to enhance — falling through to the direct chain");
         if(metaPre) metaPre.textContent=`via ${providerUsed} / ${modelUsed} — ${full.length} chars`;
         const otherMeta=document.getElementById(isMobile?"enhancerMeta":"enhancerMetaMobile");
         if(otherMeta) otherMeta.textContent=metaPre?metaPre.textContent:"";
@@ -2574,7 +2582,7 @@ The image will be generated at [resolution] and [aspect ratio] (only include thi
         // Same refusal guard the Worker applies before persisting — a refusal is
         // a 200 with prose, so without this it is saved into localStorage as a
         // successful enhancement and shown to the user as one.
-        if(isRefusalText(content)){ lastErr="LLM refused to enhance ("+p.model+") — tried next provider"; continue; }
+        if(enhancementRejectReason(content,raw)){ lastErr="LLM refused to enhance ("+p.model+") — tried next provider"; continue; }
         const out=document.getElementById(outputId);
         if(out){ out.value=content; out.scrollTop=out.scrollHeight; }
         const other=document.getElementById(isMobile?"enhancerOutput":"enhancerOutputMobile");

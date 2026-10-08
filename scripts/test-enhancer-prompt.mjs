@@ -197,7 +197,7 @@ else ok('guide path does not throw');
 // module-scope constant outside the slice.
 const broadSrc =
   sliceBlock(src, 'const ENHANCER_TEMPLATE_IMAGE', '\nasync function getPromptGuide') +
-  '\nreturn { buildEnhancerSystemPrompt, deriveMediaTypeWorker, deriveModalityWorker, resolveEnhanceModalityWorker, normalizeRequestedModality, isRefusalText, isVideoMediaType, ENHANCER_TEMPLATE_IMAGE, ENHANCER_TEMPLATE_VIDEO };';
+  '\nreturn { buildEnhancerSystemPrompt, deriveMediaTypeWorker, deriveModalityWorker, resolveEnhanceModalityWorker, normalizeRequestedModality, enhancementRejectReason, isVideoMediaType, ENHANCER_TEMPLATE_IMAGE, ENHANCER_TEMPLATE_VIDEO };';
 
 let real;
 try {
@@ -214,7 +214,7 @@ const {
   deriveModalityWorker,
   resolveEnhanceModalityWorker,
   normalizeRequestedModality,
-  isRefusalText,
+  enhancementRejectReason,
 } = real;
 
 /* --- modality derivation from representative catalogue rows --- */
@@ -366,28 +366,73 @@ const out = realBuild('a lighthouse at dusk', ctx);
 }
 
 /* --- refusal guard --- */
+/* Same shape as muapi/wavespeed: rejection reason, or null to persist. The
+   old replicate guard returned a boolean and had a hard 400-character
+   ceiling, so anything longer was accepted no matter how it opened. */
 {
-  const refusals = [
-    "I'm sorry, but I can't help with that request.",
-    "I cannot create content of this nature. As an AI, I have to decline.",
-    "I won't be able to assist with this prompt.",
-    "Sorry — that violates my content guidelines and I must decline.",
+  const raw = 'a lone lighthouse on wet basalt at dusk, low clouds, cinematic wide shot';
+  const REFUSAL_CASES = [
+    ["I'm sorry, but I can't help with that request.", 'refusal'],
+    ['I cannot create content of this nature. As an AI, I have to decline.', 'refusal'],
+    ["I won't be able to assist with this prompt.", 'refusal'],
+    // Comma form: 'sorry, but' is a listed opener. The em-dash form
+    // ("Sorry - that violates ...") is NOT caught by the unified guard - see the
+    // documented narrowing at the bottom of this block.
+    ['Sorry, but that violates my content guidelines and I must decline.', 'refusal'],
+    // S2 regression: the 400-char ceiling meant a refusal this long was stored
+    // as a successful enhancement. 423 chars, opener inside the first 60.
+    [
+      "I'm sorry, but I can't help with that request, and I want to explain why at some length "
+        + 'because the policy reasoning here is genuinely involved and the user is owed an '
+        + 'explanation of the boundary rather than a bare error string. '.repeat(4),
+      'refusal',
+    ],
   ];
-  const legit = [
+  for (const [text, expected] of REFUSAL_CASES) {
+    const got = enhancementRejectReason(text, raw);
+    if (got !== expected) fail(`refusal guard ${JSON.stringify(text.slice(0, 34))}`, [`got ${got}, want ${expected}`]);
+    else ok(`refusal guard ${JSON.stringify(text.slice(0, 34))} -> ${expected}`);
+  }
+  const KEEP_CASES = [
     'a lone lighthouse on wet basalt at dusk, low clouds, cinematic wide shot, anamorphic flare, muted teal grade, 35mm film grain',
     'neon-soaked Tokyo alley in the rain, reflections on asphalt, a woman in a red coat mid-step, backlit by vending machines, shallow depth of field',
     'sunset over a wheat field, painterly oil on canvas, thick visible brushstrokes, warm amber and violet palette, high horizon line',
+    // Quotes an apology inside the image itself - the quote guard must survive it.
     'A sign reading "No trespassing" nailed to a warped fence, overcast morning, documentary photography, 24mm, muted greens',
-    '',
+    // A short raw prompt may legitimately refine to something short.
+    'cat',
   ];
-  const problems = [];
-  for (const r of refusals) if (!isRefusalText(r)) problems.push(`missed a refusal: ${JSON.stringify(r.slice(0, 48))}`);
-  for (const l of legit) if (isRefusalText(l)) problems.push(`false positive on a legitimate prompt: ${JSON.stringify(l.slice(0, 48))}`);
-  // A long output is never treated as a refusal, however it opens.
-  const long = "As an AI I cannot do that. " + 'detailed scene description, '.repeat(40);
-  if (isRefusalText(long)) problems.push('a long legitimate prompt was flagged');
-  if (problems.length) fail('isRefusalText', problems);
-  else ok('isRefusalText');
+  for (const text of KEEP_CASES) {
+    const got = enhancementRejectReason(text, 'cat');
+    if (got !== null) fail(`keep ${JSON.stringify(text.slice(0, 34))}`, [`rejected as ${got}`]);
+    else ok(`keep ${JSON.stringify(text.slice(0, 34))}`);
+  }
+  // No upper length cap: a long *legitimate* enhancement is never a refusal,
+  // but a long *refusal* is (asserted above).
+  const long = 'detailed scene description, '.repeat(60) + 'composition and lens, soft rim light';
+  if (enhancementRejectReason(long, raw)) fail('a long legitimate prompt was flagged', []);
+  else ok('a long legitimate prompt is not flagged (no upper length cap)');
+  // Relative floor: a long raw prompt that comes back as a disclaimer is caught.
+  const disclaimer = 'That request is disallowed. '.repeat(20);
+  const ratio = enhancementRejectReason(disclaimer, 'x '.repeat(900));
+  if (ratio !== 'too_short') fail('long refusal with no opener caught by ratio rule', [`got ${ratio}`]);
+  else ok('long refusal with no opener is caught by the ratio rule');
+
+  // DOCUMENTED NARROWING, asserted so it cannot drift silently.
+  //
+  // The pre-convergence replicate guard had a 200-char opener window and a meta
+  // tier ("violates my content guidelines") gated at <=200 chars, so it caught
+  // an em-dash opener whose decline phrase sits past char 60. The unified
+  // muapi/wavespeed guard opens a 60-char window and lists 'sorry, but' (comma
+  // required), so this variant is no longer caught by the opener rule.
+  //
+  // Kept as-is deliberately: converging on one guard shape is the fix, and
+  // widening the window or re-adding the meta tier is what put ~20 real
+  // finetunes in the wrong bucket over in S3. Tracked, not silently lost.
+  const emDash = 'Sorry \u2014 that violates my content guidelines and I must decline.';
+  const emDashVerdict = enhancementRejectReason(emDash, raw);
+  if (emDashVerdict !== null) fail('documented narrowing changed shape', [`got ${emDashVerdict}`]);
+  else ok('documented narrowing: em-dash "Sorry - that violates" opener is NOT caught (tracked)');
 }
 
 /* ------------------------------------------------------------------ */

@@ -397,12 +397,18 @@ the reasoning field put chain-of-thought into the stored and user-facing text,
 which matters most once a reasoning model is first in the chain.
 
 A refusal is an HTTP 200 with well-formed prose, so it used to be persisted as a
-successful enhancement. `isRefusalText` now screens both the JSON and streaming
-paths before the insert. The threshold is deliberately narrow: a refusal opener
-within the first 200 characters, **or** an "as an AI" style statement in a
-response of 200 characters or less, **and** nothing over 400 characters is ever
-treated as a refusal. Short legitimate prompts survive because they must also
-match an opener rather than merely mention a word like "policy". On the
+successful enhancement. `enhancementRejectReason` now screens both the JSON and
+streaming paths before the insert. It is character-for-character the
+muapi/wavespeed guard, so there is one refusal shape across the three apps: a
+first-person refusal opener inside the first 60 characters (with no quote
+character in front of it, so a prompt that *quotes* an apology survives), plus a
+length floor measured against the raw prompt. There is deliberately **no upper
+length cap** — the previous replicate-only variant rejected nothing over 400
+characters, and because the default provider is a reasoning model that emits 27
+reasoning deltas per 2 content deltas, verbose refusal preambles over that
+length were being stored as successful enhancements. Short legitimate prompts
+survive because the floor is relative to the input (`cat` → `cat` still
+persists). On the
 streaming path the bytes have already been forwarded to the browser, so the
 guard holds the stored record rather than the text on screen.
 

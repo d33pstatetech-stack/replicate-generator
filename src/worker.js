@@ -178,43 +178,58 @@ function resolveEnhanceModalityWorker(model, requested) {
    string, so nothing in the existing pipeline noticed: the refusal was stored
    in `enhancements` as a successful enhancement and then reused.
 
-   Deliberately narrow. Two tiers, and a refusal must clear the first OR pass
-   both of the second tier's conditions:
+   This is character-for-character the muapi/wavespeed guard (one shape across
+   the batch). The previous replicate-only variant had a hard 400-character
+   ceiling plus a 200-character opener window and a meta tier, so it returned
+   false for anything longer — and the default provider is a reasoning model
+   that emits 27 reasoning deltas per 2 content deltas, so a verbose refusal
+   preamble over 400 chars persisted as a successful enhancement. Only three
+   shapes are rejected, all deliberately narrow:
 
-     tier 1 - a refusal opener anywhere in the first 200 characters
-              ("I can't help with that", "I'm sorry, but ...", "I must
-              decline"). Anchored to the head, because that is where a refusal
-              states itself and a real prompt rarely opens that way.
-     tier 2 - a meta statement about the assistant ("as an AI ...", "against
-              my guidelines") AND a total length of 200 characters or less.
-              The length ceiling is what makes this safe: a meta phrase quoted
-              inside a long, legitimate prompt cannot trigger it.
-
-   Plus a hard 400-character cap: a refusal is short, and an enhanced prompt
-   that long has certainly been produced. Legitimate short prompts therefore
-   survive - they are under the cap and must additionally match a refusal
-   opener, not merely mention the word "policy".
+     empty      — nothing to store.
+     refusal    — a first-person refusal opener inside the first 60 characters,
+                  with no quote character before it. Both conditions matter: the
+                  system prompt demands prompt-only output, so a real refusal
+                  opens with the apology ("I'm sorry, but…", "I cannot…"), while
+                  a template that merely *quotes* one ('reply with "I'm sorry, I
+                  can't do that"') has a quote in front of it and is a legitimate
+                  enhancement.
+     too_short  — fewer than 24 non-space characters *when the raw prompt is at
+                  least that long*, or under 40% of a raw prompt of at least 80
+                  characters. 24 was chosen because the shortest legitimate
+                  keyword-style refinement this app produces is several dozen
+                  characters; anything shorter cannot describe a subject,
+                  composition or style. Both guards are conditional on the
+                  input, so a genuinely one-word prompt that refines to one word
+                  still persists (`cat` → `cat` is kept), while a long input
+                  that comes back as a disclaimer does not. There is no upper
+                  length cap at all — a refusal is identified by its opening,
+                  not by being short.
    ------------------------------------------------------------------ */
-const REFUSAL_OPENERS = [
-  /^\s*(?:i\s+(?:can(?:'|no)?t|won(?:'|no)?t)|i'?m\s+(?:sorry|afraid|unable)|sorry|unfortunately|unfortunately,|i\s+must\s+decline|i\s+have\s+to\s+decline|as\s+an\s+ai\b|i'?m\s+not\s+able\s+to\b|it\s+is\s+not\s+appropriate|it'?s\s+not\s+appropriate)/i,
-  /\bi\s+(?:can(?:'|no)?t|won(?:'|no)?t)\s+(?:help|assist|comply|fulfil|fulfill|provide|create|generate|write|process)\b/i,
-  /\bi\s+(?:must|have\s+to)\s+(?:decline|refuse)\b/i,
-  /\bi\s+can(?:'|no)?t\s+(?:help|assist|comply|fulfil|fulfill|provide|create|generate|write|process)\s+(?:with|that|this)\b/i,
+const ENHANCE_MIN_NONSPACE_CHARS = 24;
+const ENHANCE_REFUSAL_OPENERS = [
+  "i'm sorry", 'i am sorry', 'sorry, but', 'i apologize', 'i apologise',
+  'i cannot', 'i can not', "i can't", 'i cant', "i won't", 'i will not',
+  "i'm not able to", 'i am not able to', "i'm unable to", 'i am unable to',
+  'i must decline', 'i have to decline', 'i must refuse', 'i cannot assist',
+  "i can't assist", 'i cannot help', "i can't help", 'i cannot provide',
+  "i can't provide", 'i cannot fulfill', "i can't fulfill", 'i cannot comply',
+  "i can't comply", 'i do not feel comfortable', "i don't feel comfortable",
+  'i must inform you', 'as an ai language model', "i'm an ai", 'i am an ai',
 ];
-const REFUSAL_META = [
-  /\bas\s+an?\s+ai\b/i,
-  /\b(?:violat\w+|against|in\s+conflict\s+with)\s+(?:my|our|the)\s+(?:polic\w+|guideline\w*|terms|rules|safety)/i,
-  /\bi(?:'|’)?m\s+not\s+(?:able|permitted)\s+to\b/i,
-];
-const REFUSAL_MAX_CHARS = 400;
-const REFUSAL_META_MAX_CHARS = 200;
-
-function isRefusalText(text) {
-  const t = String(text || '').trim();
-  if (!t || t.length > REFUSAL_MAX_CHARS) return false;
-  const head = t.slice(0, 200);
-  if (REFUSAL_OPENERS.some((re) => re.test(head))) return true;
-  return t.length <= REFUSAL_META_MAX_CHARS && REFUSAL_META.some((re) => re.test(t));
+function enhancementRejectReason(enhanced, rawPrompt) {
+  const text = String(enhanced || '').trim();
+  if (!text) return 'empty';
+  const norm = text.toLowerCase().replace(/[\u2018\u2019]/g, "'");
+  const head = norm.slice(0, 60).replace(/^[\s"'`*_>(\[-]+/, '');
+  const openerAt = ENHANCE_REFUSAL_OPENERS.find((p) => head.includes(p));
+  // Quoted refusal inside a template is legitimate copy, not a refusal.
+  if (openerAt && !/["'\u201c\u201d]/.test(norm.slice(0, norm.indexOf(openerAt)))) return 'refusal';
+  const nonSpace = text.replace(/\s+/g, '').length;
+  const rawLen = String(rawPrompt || '').trim().length;
+  if (nonSpace < ENHANCE_MIN_NONSPACE_CHARS && rawLen >= ENHANCE_MIN_NONSPACE_CHARS) return 'too_short';
+  if (rawLen >= 80 && text.length < rawLen * 0.4) return 'too_short';
+  return null;
 }
 function deriveTechniques(content, ctx) {
   const t = [];
@@ -877,7 +892,7 @@ async function handleApiRoute(request, env, path, ctx) {
           }
           // K10: a refusal is an HTTP 200 with prose, so the only way to stop it
           // becoming a stored "successful enhancement" is to check before insert.
-          if (isRefusalText(content)) { lastErr = 'LLM refused to enhance (response looks like a refusal) [' + p.model + ']'; continue; }
+          if (enhancementRejectReason(content, rawPrompt)) { lastErr = 'LLM refused to enhance (response looks like a refusal) [' + p.model + ']'; continue; }
           // OpenRouter reports the underlying model (routers); Venice echoes its own.
           const actualModel = j.model || p.model;
           const techniques = deriveTechniques(content, ctx);
@@ -922,7 +937,7 @@ async function handleApiRoute(request, env, path, ctx) {
                   // hold is the stored record: a refusal is not written to
                   // `enhancements`, and no history_id is emitted for it, so it
                   // cannot be re-used as a successful enhancement later.
-                  if (fullEnhanced && !isRefusalText(fullEnhanced)) {
+                  if (fullEnhanced && !enhancementRejectReason(fullEnhanced, rawPrompt)) {
                     const hid = await histInsertEnhancement(env, {
                       source_app: 'replicate', kind: 'enhanced',
                       raw_prompt: rawPrompt, enhanced: fullEnhanced, target_provider: 'replicate',
