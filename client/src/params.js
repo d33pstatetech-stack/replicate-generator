@@ -8,9 +8,15 @@
 // LoRA/weight URLs must NEVER render as image upload zones (a data-URI'd
 // multi-hundred-MB .safetensors would hang the tab) — always URL text inputs.
 // (*_scale numeric fields are excluded — they render as plain numbers.)
+//
+// Numeric params are excluded too, and that is not cosmetic: `guidance_weight`,
+// `style_weight`, `audio_weight` and `ip_adapter_weight` all contain "weight"
+// and would otherwise fall through to the generic text box at the bottom of
+// ParamForm, rendering a 0-7.5 guidance slider as a free-text field.
 export function getParamType(name, spec = {}) {
   const n = String(name || '').toLowerCase();
-  if ((n.includes('lora') || n.includes('weight')) && !n.includes('scale')) return 'lora_url';
+  const t = String(spec?.type || '').toLowerCase();
+  if (t !== 'number' && t !== 'integer' && t !== 'boolean' && (n.includes('lora') || n.includes('weight')) && !n.includes('scale')) return 'lora_url';
   if (spec.format === 'uri' || spec['x-format'] === 'uri' || name === 'image' || name === 'mask' || name === 'image_url') return 'image';
   if (name === 'last_image') return 'image';
   if (spec.type === 'array' && spec.items?.format === 'uri') return 'image_array';
@@ -23,12 +29,56 @@ export function getParamType(name, spec = {}) {
   return 'string';
 }
 
+/* An adapter INPUT carries weights; an adapter STRENGTH does not. The two are
+   told apart by TYPE first, because the names collide:
+     lora_weights  (string) -> a path/URL to load. This IS an adapter input.
+     lora_scale    (number) -> how hard to apply it. This is NOT.
+     lora_strength (number) -> ditto. This is NOT.
+   The previous name-only veto (/scale|strength|weight|multiplier/ before the
+   lora test) therefore rejected the single most common Replicate adapter
+   input there is: 26 live models declare `lora_weights` as a string and were
+   being rendered as an unvalidated plain text box while the Composer told the
+   user "This model has no adapter parameter". It also accepted
+   `fofr/face-to-sticker`, whose only "adapter" params are the numeric
+   `ip_adapter_noise` / `ip_adapter_weight`. Type first, name second.
+   lib/models.ts imports this function rather than keeping a second copy. */
 export function isLoraParam(name, spec = {}) {
   const n = String(name || '').toLowerCase();
+  const t = String(spec?.type || '').toLowerCase();
+  // A number or a switch is a magnitude or a flag, never a weights path.
+  if (t === 'number' || t === 'integer' || t === 'boolean') return false;
   if (n === 'extra_lora' || n === 'extra_lora_weights' || /(^|_)replicate_weights$/.test(n)) return true;
+  if (/lora_weights|_lora_url$/.test(n)) return true;
   if (/scale|strength|weight|multiplier/.test(n)) return false;
   if (/lora|loras|adapter/.test(n)) return true;
+  // An array of adapter objects: `lora_list` items carry a `$ref` to LoraItem.
+  // Scoped to lora-named refs so unrelated object arrays (ModelItem, Shot,
+  // DialogueTurn, GeminiTTSSpeaker) stop reading as adapters.
+  if (t === 'array') {
+    const items = JSON.stringify(spec?.items ?? {});
+    if (/\$ref/i.test(items) && /lora/i.test(items)) return true;
+  }
   return false;
+}
+
+/* ------------------------------------------------------------------
+   Tier B — the UNVERIFIED adapter slot.
+
+   A model whose published schema declares no adapter parameter cannot be
+   shown a verified LoRA field, because submitting `extra_lora` to it is a
+   guess Replicate will reject. Some architectures may well support one (see
+   TIER_B_FAMILIES in lib/models.ts).
+
+   So Tier B gets an input that is OFF by default and only reaches the payload
+   when the user explicitly opts in. `tierBLoraPayload` is the single place
+   that decision is made, which is what makes it testable without a browser.
+   ------------------------------------------------------------------ */
+export const TIER_B_LORA_PARAM = 'extra_lora';
+
+/** `{}` unless the user ticked the opt-in AND typed something. */
+export function tierBLoraPayload({ optIn, token } = {}) {
+  const t = String(token ?? '').trim();
+  return optIn && t ? { [TIER_B_LORA_PARAM]: t } : {};
 }
 
 export function loraHintText() {

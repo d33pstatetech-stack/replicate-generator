@@ -4,6 +4,7 @@ import { Badge, ModelName, Spinner, Tip } from "../ui/primitives";
 import { useToast } from "../ui/Toasts";
 import ParamForm from "./ParamForm";
 import { estimateCost, streamEnhance } from "../lib/api";
+import { adapterParams, loraTier, mergeBundledAdapterParams, tierBLoraFor } from "../lib/models";
 import { useDebounced } from "../lib/hooks";
 import { TEMPLATES } from "../enhancer";
 import type { Job, Lora, Model, ModelSchema } from "../lib/types";
@@ -53,8 +54,25 @@ export default function Composer({
 
   useEffect(() => () => abort.current?.abort(), []);
 
+  /* The form renders the MERGED schema: the harvested D1 one, plus any adapter
+     param the bundled models.js schema declares and D1 dropped. D1 wins on
+     every conflict. Doing it here rather than in lib/api.ts keeps the change
+     inside the files this issue owns, and it means the Composer reads the same
+     schema the user sees. */
+  const mergedSchema = useMemo(
+    () => (schema && model ? mergeBundledAdapterParams(model.id, schema) : schema),
+    [model, schema],
+  );
+
+  /* LoRA support, from that same merged schema — never from the family.
+     `A` verified, `B` unverified candidate (opt-in slot in Parameters),
+     null no evidence at all. */
+  const tier = loraTier(model, mergedSchema);
+  const tierB = tierBLoraFor(model, mergedSchema);
+  const adapterNames = adapterParams(mergedSchema, model?.id ?? "");
+
   const busy = job?.status === "running" || job?.status === "queued";
-  const missingRequired = Object.entries(schema?.params ?? {})
+  const missingRequired = Object.entries(mergedSchema?.params ?? {})
     .filter(([n, s]) => s.required && n !== "prompt" && params[n] == null)
     .map(([n, s]) => s.title || n.replace(/_/g, " "));
 
@@ -265,9 +283,11 @@ export default function Composer({
         )}
         {model && pinnedLoras.length > 0 && (
           <span className="text-micro text-t3">
-            {model.loraCapable
-              ? "This model accepts adapters — add them under Parameters."
-              : "This model has no adapter parameter."}
+            {tier === "A"
+              ? `This model accepts adapters${adapterNames.length ? ` (${adapterNames.join(", ")})` : ""} — add them under Parameters.`
+              : tier === "B"
+                ? "Unverified: this model's schema declares no adapter field. You can send extra_lora anyway under Parameters, but Replicate will reject the prediction."
+                : "This model has no adapter parameter."}
           </span>
         )}
         <button type="button" onClick={onOpenLoras} className="btn btn-sm btn-ghost ml-auto gap-1.5">
@@ -317,7 +337,7 @@ export default function Composer({
             ))}
           </div>
         ) : model ? (
-          <ParamForm schema={schema} values={params} onChange={setParams} />
+          <ParamForm schema={mergedSchema} values={params} onChange={setParams} tierB={tierB} />
         ) : (
           <p className="text-fine text-t3">Parameters appear once a model is selected.</p>
         )}
