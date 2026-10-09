@@ -23,9 +23,9 @@
 // The browser-facing LoRA endpoints (/api/lora, /api/loras) stay protected:
 // they are part of the authenticated UI and one of them writes to the shared
 // library.
-// Matching is by string prefix, so /api/lora and /api/loras are both needed:
-// '/api/loras/custom'.startsWith('/api/lora') is false. The original list had
-// only '/api/lora', which left the shared custom-LoRA library unwrapped.
+// Matching is by string prefix, so '/api/lora' already covers '/api/loras/*'
+// ('/api/loras/custom'.startsWith('/api/lora') is true). '/api/loras' is kept
+// anyway so the intent stays explicit if the matching ever changes.
 const PROTECTED_API_PREFIXES = ['/api/enhance', '/api/optimize', '/api/prompts', '/api/llm-config', '/api/replicate', '/api/cloud', '/api/history', '/api/lora', '/api/loras', '/api/judge']; // fail-closed without Cloudflare Access headers (defense-in-depth; edge Access app is the primary gate)
 
 // Array order IS the priority mechanism: the enhance loop tries providers in
