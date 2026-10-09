@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import Icon from "../ui/Icon";
 import { Badge, Tip } from "../ui/primitives";
-import { getParamType, isLoraParam, loraSlotCount, loraTokenIssues, prettyLabel, sortParamEntries, TIER_B_LORA_PARAM, tierBLoraPayload } from "../params";
+import { getParamType, isLoraParam, loraSlotCount, loraTokenIssues, prettyLabel, sliderBounds, sortParamEntries, TIER_B_LORA_PARAM, tierBLoraPayload } from "../params";
 import { usePersistentState } from "../lib/hooks";
 import type { ModelSchema, ParamSpec } from "../lib/types";
 import type { TierBLora } from "../lib/models";
@@ -190,7 +190,7 @@ function LoraField({
   );
 }
 
-function Field({ name, spec, value, onSet }: { name: string; spec: ParamSpec; value: unknown; onSet: (v: unknown) => void }) {
+function Field({ name, spec, value, onSet, weightsCount }: { name: string; spec: ParamSpec; value: unknown; onSet: (v: unknown) => void; weightsCount?: number | null }) {
   const id = useId();
   const descId = `${id}-d`;
   const text = label(name, spec);
@@ -198,6 +198,10 @@ function Field({ name, spec, value, onSet }: { name: string; spec: ParamSpec; va
   const describedBy = spec.description ? descId : undefined;
 
   const control = () => {
+    // lora_scales pairs with lora_weights (flux-2-klein base-lora models):
+    // one strength slider per weight instead of a free-text list of floats.
+    if (name === "lora_scales" && weightsCount !== null && weightsCount !== undefined)
+      return <LoraScalesField value={value} onSet={onSet} count={weightsCount} describedBy={describedBy} />;
     if (isLoraParam(name, spec as any)) return <LoraField id={id} name={name} spec={spec} value={value} onSet={onSet} />;
     // getParamType routes anything lora/weight-shaped that is not a numeric
     // scale here. isLoraParam is the gate, but this catches anything that
@@ -231,12 +235,13 @@ function Field({ name, spec, value, onSet }: { name: string; spec: ParamSpec; va
       );
     }
     if (kind === "range") {
-      const lo = minOf(spec);
-      const hi = maxOf(spec);
+      const b = sliderBounds(name, spec as any);
+      const lo = minOf(spec) ?? b?.min ?? 0;
+      const hi = maxOf(spec) ?? b?.max ?? 1;
       const v = Number(value ?? spec.default ?? lo);
       return (
         <div className="flex items-center gap-3">
-          <input id={id} type="range" min={lo} max={hi} step={spec.step ?? 1} value={v} aria-describedby={describedBy} onChange={(e) => onSet(Number(e.target.value))} className="h-11 min-w-0 flex-1 accent-[var(--color-accent)]" />
+          <input id={id} type="range" min={lo} max={hi} step={b?.step ?? spec.step ?? 1} value={v} aria-describedby={describedBy} onChange={(e) => onSet(Number(e.target.value))} className="h-11 min-w-0 flex-1 accent-[var(--color-accent)]" />
           <output htmlFor={id} className="tnum w-14 shrink-0 rounded-md bg-s0 py-1.5 text-center text-fine font-medium text-t1 ring-1 ring-line">
             {v}
           </output>
@@ -358,6 +363,71 @@ function TierBLoraField({
   );
 }
 
+/* ------------------------------------------------------------------
+   lora_scales — one strength slider per LoRA weight. The schema declares
+   this as a bare list of floats ("must match the number of lora_weights,
+   defaults to 1"), which used to render as a free-text box. Count follows
+   the sibling lora_weights value; untouched means the provider default.
+   ------------------------------------------------------------------ */
+function loraWeightCount(v: unknown): number {
+  if (Array.isArray(v)) return Math.max(1, v.length);
+  const t = String(v ?? "").trim();
+  if (!t) return 1;
+  try {
+    const j = JSON.parse(t);
+    if (Array.isArray(j)) return Math.max(1, j.length);
+  } catch {
+    /* fall through to split */
+  }
+  return Math.max(1, t.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean).length);
+}
+
+function LoraScalesField({
+  value,
+  onSet,
+  count,
+  describedBy,
+}: {
+  value: unknown;
+  onSet: (v: unknown) => void;
+  count: number;
+  describedBy?: string;
+}) {
+  const arr = Array.isArray(value) ? (value as unknown[]) : [];
+  const n = Math.max(1, count);
+  const shown = Array.from({ length: n }, (_, i) => {
+    const v = Number(arr[i]);
+    return Number.isFinite(v) ? v : 1;
+  });
+  const setOne = (i: number, v: number) => {
+    const next = [...shown];
+    next[i] = v;
+    onSet(next.slice(0, n));
+  };
+  return (
+    <div className="grid gap-2" role="group" aria-label="LoRA strengths" aria-describedby={describedBy}>
+      {shown.map((s, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="w-14 shrink-0 text-micro text-t3">LoRA {i + 1}</span>
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={0.05}
+            value={s}
+            onChange={(e) => setOne(i, Number(e.target.value))}
+            aria-label={`LoRA ${i + 1} strength`}
+            className="h-9 min-w-0 flex-1 accent-[var(--color-accent)]"
+          />
+          <output className="tnum w-12 shrink-0 rounded-md bg-s0 py-1 text-center text-micro font-medium text-t1 ring-1 ring-line">
+            {Math.round(s * 100) / 100}
+          </output>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ParamForm({
   schema,
   values,
@@ -401,6 +471,11 @@ export default function ParamForm({
     return sortParamEntries(all, required) as [string, ParamSpec][];
   }, [schema]);
 
+  // lora_scales sliders follow the sibling lora_weights value when the pair
+  // exists (flux-2-klein base-lora models); null everywhere else.
+  const weightsCount =
+    (schema?.params as any)?.lora_weights != null ? loraWeightCount(values["lora_weights"]) : null;
+
   if (!schema) return null;
   if (!entries.length && !tierB) return <p className="text-fine text-t3">This model takes a prompt and nothing else.</p>;
 
@@ -408,7 +483,14 @@ export default function ParamForm({
     <div className="@container/form">
       <div className="grid grid-cols-1 gap-x-5 gap-y-4 @min-[30rem]/form:grid-cols-2 @min-[56rem]/form:grid-cols-3">
         {entries.map(([name, spec]) => (
-          <Field key={name} name={name} spec={spec} value={values[name]} onSet={(v) => set(name, v)} />
+          <Field
+            key={name}
+            name={name}
+            spec={spec}
+            value={values[name]}
+            onSet={(v) => set(name, v)}
+            weightsCount={name === "lora_scales" ? weightsCount : null}
+          />
         ))}
         {tierB && (
           <TierBLoraField tierB={tierB} optIn={tierBOptIn} token={tierBToken} onChange={commitTierB} />
