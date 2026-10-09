@@ -1,37 +1,59 @@
 import { useCallback, useState } from 'react';
 import { fetchLlmConfig, saveLlmConfig } from '../api';
 import { DEFAULT_LLM } from '../enhancer';
+import { mergeLlmChains } from '../lib/llmChain';
 
 const KEY = 'replicate_llm_config';
-// New rows default to OpenRouter's secret name; the field exists because key
-// resolution used to sniff the URL for 'venice.ai' and everything else got the
-// OpenRouter key.
-const EMPTY_ROW = { baseUrl: 'https://openrouter.ai/api/v1', model: '', apiKeyEnv: 'OPENROUTER_API_KEY', apiKey: '' };
+// New rows seed the primary provider, matching muapi/wavespeed and the
+// vanilla settings modal. `apiKeyEnv` is what authenticates the host on the
+// Worker; with an empty apiKey the env secret is used and no key is stored.
+// (Previously this seeded a blank OpenRouter row with no `provider` field,
+// so every added row started life unusable.)
+const EMPTY_ROW = { provider: 'explabs', baseUrl: 'https://api.experientiallabs.ai/v1', model: 'glm-5.3-flash-abliterated', apiKey: '', apiKeyEnv: 'EXPLABS_API_KEY' };
 
-// LLM fallback-chain config: localStorage wins, backend as fallback/mirror.
+// LLM fallback-chain config. The backend (D1) owns the order — it is the
+// curated failover priority — while the browser copy owns personal values
+// (apiKeys). load() merges the two so a chain saved before a provider was
+// added server-side heals itself instead of shadowing the new entry forever.
+// The merged chain is written back to localStorage only, never pushed to the
+// backend implicitly: an explicit Save still owns the backend sync.
 export default function useLlmConfig() {
   const [config, setConfig] = useState(null);
 
   const load = useCallback(async () => {
+    let local = null;
     try {
-      const local = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (local?.providers?.length) {
-        setConfig(local);
-        return local;
-      }
+      local = JSON.parse(localStorage.getItem(KEY) || 'null');
     } catch {
-      /* fall through to backend */
+      local = null;
     }
+    const hasLocal = !!(local && Array.isArray(local.providers) && local.providers.length);
+    let backend = null;
     try {
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 800);
       const data = await fetchLlmConfig(ctrl.signal).finally(() => clearTimeout(to));
-      if (data?.config?.providers?.length) {
-        setConfig(data.config);
-        return data.config;
-      }
+      if (data?.config?.providers?.length) backend = data.config;
     } catch {
-      /* fall through to default */
+      backend = null;
+    }
+    if (backend) {
+      const { chain, changed } = mergeLlmChains(hasLocal ? local : null, backend);
+      if (chain && changed) {
+        try {
+          localStorage.setItem(KEY, JSON.stringify(chain));
+        } catch {
+          /* private mode: serve merged without persisting */
+        }
+      }
+      if (chain && Array.isArray(chain.providers) && chain.providers.length) {
+        setConfig(chain);
+        return chain;
+      }
+    }
+    if (hasLocal) {
+      setConfig(local);
+      return local;
     }
     const d = structuredClone(DEFAULT_LLM);
     setConfig(d);
