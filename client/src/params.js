@@ -249,6 +249,14 @@ export function buildSubmitParams(prompt, values, schema) {
           else delete params[k];
         } else if (arr.length) params[k] = arr;
         else delete params[k];
+      } else if (spec.type !== 'array' && Array.isArray(params[k])) {
+        // Single-value slot (lora_weights, extra_lora, lora_url,
+        // replicate_weights): the multi-slot LoRA field always stores arrays,
+        // so a lone entry must come back out as a string — Replicate rejects
+        // `lora_weights: ["…"]` with "Expected: string, given: array".
+        const flat = params[k].map((s) => String(s ?? '').trim()).filter(Boolean);
+        if (!flat.length) delete params[k];
+        else params[k] = flat[0];
       }
     }
   }

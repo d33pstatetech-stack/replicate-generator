@@ -1213,7 +1213,14 @@ async function handleApiRoute(request, env, path, ctx) {
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 120000);
       try {
-        const up = await fetch(urls[i], { signal: ctrl.signal });
+        const up = await fetch(urls[i], {
+          signal: ctrl.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            Accept: 'image/avif,image/webp,image/apng,image/*,video/*,audio/*,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+        });
         if (!up.ok || !up.body) throw new Error('fetch HTTP ' + up.status);
         const len = Number(up.headers.get('content-length') || 0);
         if (len > 250 * 1024 * 1024) throw new Error('file too large (>250MB), download manually');
@@ -1227,7 +1234,10 @@ async function handleApiRoute(request, env, path, ctx) {
         await env.OUTPUTS_BUCKET.put(key, up.body, { httpMetadata: { contentType: ct } });
         clearTimeout(to);
         const head = await env.OUTPUTS_BUCKET.head(key);
-        saved.push({ key, size: head ? head.size : null, contentType: ct });
+        if (!head || !head.size || head.size === 0) {
+          throw new Error('R2 put succeeded but object has zero size');
+        }
+        saved.push({ key, size: head.size, contentType: ct });
       } catch (e) {
         clearTimeout(to);
         errors.push({ url: urls[i], error: String((e && e.message) || e).slice(0, 200) });
