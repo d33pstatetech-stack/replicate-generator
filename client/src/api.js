@@ -48,6 +48,14 @@ export async function fetchModels() {
   return Array.isArray(rows) && rows.length ? rows : MODELS;
 }
 
+/** Re-harvest the Replicate catalog + input schemas into D1 (the Update button). */
+export async function syncCatalog() {
+  const res = await fetch(`${API}/api/sync`, { method: 'POST' });
+  const data = await json(res);
+  if (!res.ok) throw new Error(errText(data.message || data.error, `Sync failed (${res.status})`));
+  return data;
+}
+
 /** One model's row. Falls back to the bundled seed for ids not in D1. */
 export async function fetchModel(id) {
   try {

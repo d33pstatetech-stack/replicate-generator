@@ -29,7 +29,7 @@ import { centralConfirmedKeys, centralVerifiedPairs, mapCentralRow } from "./lib
 import { useMediaQuery, usePersistentState } from "./lib/hooks";
 import { USER_LORAS, NSFW_LORAS, isAzntenLora } from "./loras-data";
 import { buildSubmitParams } from "./params";
-import { rateJob, saveOutputs } from "./api";
+import { rateJob, saveOutputs, syncCatalog } from "./api";
 import type { Job, Lora, Model, ModelSchema, Run } from "./lib/types";
 
 type Tab = "models" | "compose" | "results";
@@ -87,6 +87,7 @@ function Console() {
 
   const [models, setModels] = useState<Model[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [statsFailed, setStatsFailed] = useState(false);
   const [selectedId, setSelectedId] = usePersistentState<string | null>("mp.model", null);
@@ -132,6 +133,41 @@ function Console() {
       live = false;
     };
   }, [toast]);
+
+  /* ---------------- update model library (live catalog refresh) ----------------
+     POST /api/sync re-harvests the Replicate catalog + per-model input schemas
+     into D1. Reload the visible catalogue and the open model's form so newly
+     added models/params show up immediately. */
+  const refreshCatalog = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const result: any = await syncCatalog();
+      const { models: fresh, statsFailed: sf } = await fetchModels();
+      setModels(fresh);
+      setStatsFailed(sf);
+      setCatalogError(null);
+      if (selectedId) {
+        try {
+          const s = await fetchSchema(selectedId);
+          setSchema(s);
+          setParams((p) => ({ ...(s.defaults || {}), ...p }));
+        } catch { /* keep the previous schema if the model disappeared */ }
+      }
+      const total = Number(result?.total ?? fresh.length);
+      const added = Number(result?.added) || 0;
+      const withParams = Number(result?.with_params) || 0;
+      toast(
+        added > 0 ? "Model library updated" : "Model library up to date",
+        "success",
+        `${total.toLocaleString()} models${added > 0 ? ` (+${added} new)` : ""}${withParams ? `, ${withParams} with parameters` : ""}`,
+      );
+    } catch (e) {
+      toast("Model update failed", "error", (e as Error).message);
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, selectedId, toast]);
 
   /* ---------------- server-stored custom LoRAs ---------------- */
   useEffect(() => {
@@ -537,6 +573,16 @@ function Console() {
           </div>
 
           <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={refreshCatalog}
+              disabled={syncing}
+              aria-label="Update model library"
+              title="Update model library — pull the latest models and parameter schemas"
+              className="btn btn-icon btn-quiet"
+            >
+              <Icon name="refresh" className={syncing ? "size-4 animate-spin" : "size-4"} />
+            </button>
             {loadingCatalog ? (
               <Badge tone="neutral">
                 <Spinner className="size-3" />

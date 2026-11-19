@@ -602,6 +602,12 @@ async function handleApiRoute(request, env, path, ctx) {
     }
   }
 
+  // ─── POST /api/sync — re-harvest catalog + input schemas from Replicate ───
+  // Powers the "Update model library" button in the console.
+  if (path === '/api/sync' && request.method === 'POST') {
+    return await syncReplicateCatalog(env);
+  }
+
   // ─── GET /api/llm-config ───
   if (path === '/api/llm-config' && request.method === 'GET') {
     const cfg = await getLLMConfigWorker(env);
@@ -2000,6 +2006,206 @@ async function buildLoraEvidence(hdb) {
       pairs_green: pairs.filter((p) => p.green).length,
     },
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Catalog refresh (POST /api/sync)
+//
+// Same harvest as scripts/fetch-replicate-catalog.mjs, moved into the Worker so
+// the console's "Update model library" button can pull the latest models and
+// their input schemas at runtime instead of only at seed time. Collections
+// carry `latest_version.openapi_schema` inline, so this needs one request per
+// collection (~39) plus the private/uncurated extras — well inside the Workers
+// subrequest budget. No per-model version requests.
+// ─────────────────────────────────────────────────────────────────────────────
+const REPLICATE_COLLECTION_GROUP = {
+  'text-to-image': 'image', 'sketch-to-image': 'image', 'super-resolution': 'image',
+  'ai-image-restoration': 'image', 'remove-backgrounds': 'image', 'image-editing': 'image',
+  'generate-anime': 'image', 'ai-face-generator': 'image', flux: 'image',
+  'flux-fine-tunes': 'image', 'flux-kontext-fine-tunes': 'image', 'qwen-image-fine-tunes': 'image',
+  'text-to-video': 'video', 'image-to-video': 'video', 'video-editing': 'video',
+  'ai-enhance-videos': 'video', lipsync: 'video', 'wan-video': 'video',
+  'text-to-speech': 'audio', 'speech-to-text': 'audio', 'sing-with-voices': 'audio',
+  'ai-music-generation': 'audio', 'generate-emoji': 'image', 'face-swap': 'image',
+  'detect-nsfw-content': 'other', 'ai-detect-objects': 'other', 'video-to-text': 'other',
+  'image-to-text': 'other', 'vision-models': 'other', 'text-recognition-ocr': 'other',
+  'text-classification': 'other', 'speaker-diarization': 'other', 'embedding-models': 'other',
+  'language-models': 'text', 'control-net': 'image', '3d-models': '3d',
+  utilities: 'other', official: '', 'try-for-free': '',
+};
+const REPLICATE_NAME_RULES = [
+  [/^text-to-image$|t2i|text2image|text-to-image/i, 'image'],
+  [/image-to-image|i2i|img2img|depth|upscale|upscal|restore|inpaint|outpaint|background-remove|bg-removal|photo-restor|super-resolution/i, 'image'],
+  [/lora|flux|sdxl|stable-diffusion|qwen-image|recraft|ideogram|photomaker|flux-kontext|nano-banana|imagen|seedream|hidream|gpt-image|dall|midjourney|topaz|krea/i, 'image'],
+  [/image-to-video|i2v|text-to-video|t2v|video-to-video|animate|wan-|kling|seedance|hailuo|minimax|luma|veo|ltx|runway|pika|hunyuan|moviepy|stable-video|mochi/i, 'video'],
+  [/lipsync|talking-head|avatar/i, 'video'],
+  [/text-to-speech|tts|speech|stt|whisper|voice-clone|speech-to-text|transcri/i, 'audio'],
+  [/music|musicgen|audio-gen|sound-effects|suno|udio/i, 'audio'],
+  [/^3d|3d-model|tripo|mesh|threed|voxel|hunyuan3d|triposr/i, '3d'],
+  [/chat-?gpt|llama|mistral|llm|qwen\d|text-generation|qwen2|qwen3/i, 'text'],
+];
+const REPLICATE_EXTRA_MODELS = [
+  'minimax/h3',
+  'd33pstatetech-stack/aznten_replicate',
+  'd33pstatetech-stack/aznten-flux.1-dev-replicate',
+];
+
+function replicateGroupFrom(name, collections) {
+  for (const c of collections) {
+    const g = REPLICATE_COLLECTION_GROUP[c];
+    if (g) return g;
+  }
+  for (const [re, g] of REPLICATE_NAME_RULES) if (re.test(name)) return g;
+  return 'other';
+}
+function replicateInputSchema(version) {
+  const doc = version && version.openapi_schema;
+  if (!doc || typeof doc !== 'object') return null;
+  const components = doc.components && doc.components.schemas;
+  const input = components && components.Input;
+  if (!input || typeof input !== 'object' || !input.properties) return null;
+  return {
+    type: input.type || 'object', title: input.title || 'Input',
+    required: input.required || [], properties: input.properties,
+    ...(components && JSON.stringify(input.properties).includes('$ref') ? { components } : {}),
+  };
+}
+function replicateResolveNode(spec, components) {
+  if (!spec || typeof spec !== 'object') return spec;
+  const ref = (typeof spec.$ref === 'string' && spec.$ref) ||
+    (Array.isArray(spec.allOf) && spec.allOf.length === 1 && typeof spec.allOf[0]?.$ref === 'string' && spec.allOf[0].$ref) || null;
+  if (!ref) return spec;
+  const leaf = components && components[String(ref).split('/').pop()];
+  if (!leaf || typeof leaf !== 'object') return spec;
+  const merged = { ...leaf, ...spec };
+  delete merged.$ref;
+  delete merged.allOf;
+  return merged;
+}
+
+async function syncReplicateCatalog(env) {
+  const { DB, REPLICATE_API_TOKEN } = env;
+  if (!REPLICATE_API_TOKEN) return jsonResponse({ error: 'REPLICATE_API_TOKEN not configured on Worker' }, 500);
+  const started = Date.now();
+  const headers = { Authorization: `Bearer ${REPLICATE_API_TOKEN}`, Accept: 'application/json' };
+  const upstream = async (p) => {
+    const r = await fetch(`https://api.replicate.com${p}`, { headers });
+    if (!r.ok) throw new Error(`${p} -> ${r.status} ${r.statusText}`);
+    return r.json();
+  };
+
+  let cols;
+  try { cols = await upstream('/v1/collections'); }
+  catch (e) { return jsonResponse({ error: 'Failed to fetch collections: ' + e.message }, 502); }
+  const slugs = (cols.results || []).map((c) => c.slug).filter(Boolean);
+  const byName = new Map();
+
+  // Private / not-yet-curated models first so a collection hit cannot shadow
+  // the fuller record fetched by name.
+  for (const name of REPLICATE_EXTRA_MODELS) {
+    try {
+      const m = await upstream(`/v1/models/${name}`);
+      byName.set(name, {
+        name, owner: m.owner, repo: m.name, description: m.description || '',
+        run_count: m.run_count || 0, is_official: !!m.is_official,
+        url: m.url || `https://replicate.com/${name}`,
+        version: m.latest_version && m.latest_version.id || null,
+        schema: replicateInputSchema(m.latest_version),
+        collections: new Set(['private-or-uncurated']),
+      });
+    } catch { /* an extra model may be private/gone — skip it */ }
+  }
+
+  let failed = 0;
+  for (const slug of slugs) {
+    let body;
+    try { body = await upstream(`/v1/collections/${slug}`); }
+    catch { failed++; continue; }
+    for (const m of body.models || []) {
+      if (m.visibility && m.visibility !== 'public') continue;
+      const full = `${m.owner}/${m.name}`;
+      let rec = byName.get(full);
+      if (!rec) {
+        rec = {
+          name: full, owner: m.owner, repo: m.name, description: m.description || '',
+          run_count: m.run_count || 0, is_official: !!m.is_official,
+          url: m.url || `https://replicate.com/${full}`, version: null, schema: null,
+          collections: new Set(),
+        };
+        byName.set(full, rec);
+      }
+      rec.collections.add(slug);
+      if (!rec.schema) rec.schema = replicateInputSchema(m.latest_version);
+      if (!rec.version && m.latest_version && m.latest_version.id) rec.version = m.latest_version.id;
+      if ((m.run_count || 0) > rec.run_count) rec.run_count = m.run_count || 0;
+    }
+  }
+
+  // Resolve $ref leaves locally — collections inline enum definitions as
+  // siblings in components.schemas. Without this every dropdown in the form
+  // collapses to a free-text box.
+  for (const r of byName.values()) {
+    const s = r.schema;
+    if (!s || !s.components) continue;
+    for (const key of Object.keys(s.properties)) {
+      s.properties[key] = replicateResolveNode(s.properties[key], s.components);
+    }
+    delete s.components;
+  }
+
+  const models = [...byName.values()]
+    .map((r) => ({
+      ...r,
+      collections: [...r.collections].sort(),
+      group_of: replicateGroupFrom(`${r.owner}/${r.repo}`, [...r.collections]),
+    }))
+    .sort((a, b) => b.run_count - a.run_count);
+  const withParams = models.filter((m) => m.schema).length;
+
+  // Atomic-ish rebuild: clear this provider's rows, then batch in the fresh
+  // set. Chunked so no single D1 batch is oversized.
+  const prevRow = await DB.prepare("SELECT COUNT(*) AS c FROM models WHERE provider='replicate'").first().catch(() => null);
+  const previous = prevRow ? Number(prevRow.c) || 0 : 0;
+  try {
+    await DB.prepare("DELETE FROM models WHERE provider='replicate'").run();
+    await DB.prepare('DELETE FROM replicate_model_schemas').run();
+    const stmts = [];
+    for (const m of models) {
+      stmts.push(
+        DB.prepare(
+          'INSERT INTO models (id, name, description, category, family, group_of, cost, cost_currency, dynamic_pricing, endpoint, playground_url, provider, run_count, is_official, version_id, updated_at) VALUES (?,?,?,?,?,?,0,?,0,?,?,?,?,?,?,datetime(\'now\'))'
+        ).bind(
+          m.name, m.name, m.description, (m.collections || [])[0] || '',
+          m.group_of, m.group_of, 'USD', `/v1/models/${m.name}/predictions`, m.url,
+          'replicate', m.run_count || 0, m.is_official ? 1 : 0, m.version,
+        ),
+      );
+      if (m.schema) {
+        stmts.push(
+          DB.prepare('INSERT INTO replicate_model_schemas (model_id, schema_json, updated_at) VALUES (?,?,datetime(\'now\'))')
+            .bind(m.name, JSON.stringify(m.schema)),
+        );
+      }
+    }
+    for (let i = 0; i < stmts.length; i += 50) await DB.batch(stmts.slice(i, i + 50));
+    await DB.prepare(
+      "INSERT OR REPLACE INTO replicate_catalog_meta (id, model_count, schema_count, official_count, source, generated_at) VALUES (1,?,?,?,?,datetime('now'))"
+    ).bind(models.length, withParams, models.filter((m) => m.is_official).length, 'replicate /v1/collections union + EXTRA_MODELS (runtime sync)').run();
+  } catch (e) {
+    return jsonResponse({ error: 'Catalog write failed: ' + (e && e.message ? e.message : 'unknown') }, 500);
+  }
+
+  return jsonResponse({
+    ok: true,
+    total: models.length,
+    with_params: withParams,
+    added: models.length - previous,
+    previous,
+    collections: slugs.length,
+    failed,
+    synced_at: new Date().toISOString(),
+    took_ms: Date.now() - started,
+  });
 }
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {
