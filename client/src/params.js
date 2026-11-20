@@ -17,10 +17,14 @@ export function getParamType(name, spec = {}) {
   const n = String(name || '').toLowerCase();
   const t = String(spec?.type || '').toLowerCase();
   if (t !== 'number' && t !== 'integer' && t !== 'boolean' && (n.includes('lora') || n.includes('weight')) && !n.includes('scale')) return 'lora_url';
-  if (spec.format === 'uri' || spec['x-format'] === 'uri' || name === 'image' || name === 'mask' || name === 'image_url') return 'image';
-  if (name === 'last_image') return 'image';
+  // Array checks MUST come before the single-image check: several Replicate
+  // image-edit models (qwen/qwen-image-edit-2511, qwen-image-edit-plus, …
+  // called `image` with `type: "array"`. Naming it `image` must not turn a
+  // multi-reference slot into a single-file input.
   if (spec.type === 'array' && spec.items?.format === 'uri') return 'image_array';
   if (name === 'images_list' || (name.includes('image') && spec.type === 'array')) return 'image_array';
+  if (spec.format === 'uri' || spec['x-format'] === 'uri' || name === 'image' || name === 'mask' || name === 'image_url') return 'image';
+  if (name === 'last_image') return 'image';
   if (spec.enum && spec.enum.length > 0) return 'select';
   if (spec.type === 'integer' && spec.minimum !== undefined && spec.maximum !== undefined) return 'range';
   if (spec.type === 'number' && spec.minimum !== undefined && spec.maximum !== undefined) return 'range';

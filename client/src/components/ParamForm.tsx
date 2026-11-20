@@ -49,30 +49,26 @@ function ImageField({
     const arr = Array.from(files || []);
     if (!arr.length) return;
     setErr(null);
-    try {
-      const uris = arr.map((f) => {
-        if (!/^image\//.test(f.type)) throw new Error(`${f.name} is not an image`);
-        const r = new FileReader();
-        r.readAsDataURL(f);
-        return f;
-      });
-      // FileReader is async; read them all then commit together.
-      Promise.all(
-        uris.map(
-          (f) =>
-            new Promise<string>((resolve, reject) => {
-              const r = new FileReader();
-              r.onload = () => resolve(String(r.result));
-              r.onerror = () => reject(new Error(`Could not read ${f.name}`));
-              r.readAsDataURL(f);
-            }),
-        ),
-      )
-        .then((out) => onSet(multiple ? [...list, ...out] : out[0]))
-        .catch((e) => setErr((e as Error).message));
-    } catch (e) {
-      setErr((e as Error).message);
-    }
+    const invalid = arr.filter((f) => !/^image\//.test(f.type)).map((f) => f.name);
+    const good = arr.filter((f) => /^image\//.test(f.type));
+    // Read every file independently: one bad/oversized image must not discard
+    // the rest of a multi-select batch. Keep the ones that read successfully.
+    Promise.all(
+      good.map(
+        (f) =>
+          new Promise<{ name: string; url?: string }>((resolve) => {
+            const r = new FileReader();
+            r.onload = () => resolve({ name: f.name, url: String(r.result) });
+            r.onerror = () => resolve({ name: f.name });
+            r.readAsDataURL(f);
+          }),
+      ),
+    ).then((results) => {
+      const out = results.map((r) => r.url).filter(Boolean) as string[];
+      const failed = [...invalid, ...results.filter((r) => !r.url).map((r) => r.name)];
+      if (out.length) onSet(multiple ? [...list, ...out] : out[0]);
+      if (failed.length) setErr(`${failed.length} image(s) could not be added: ${failed.join(", ")}`);
+    });
   }
 
   if (list.length) {
@@ -97,6 +93,31 @@ function ImageField({
           <Icon name="trash" className="size-3.5" />
           Clear
         </button>
+        {multiple && (
+          <>
+            <label htmlFor={`${id}-more`} className="btn btn-sm btn-quiet gap-1.5 cursor-pointer">
+              <Icon name="upload" className="size-3.5" />
+              Add more images
+            </label>
+            <input
+              id={`${id}-more`}
+              type="file"
+              accept="image/*"
+              multiple
+              aria-label="Add more images"
+              onChange={(e) => read(e.target.files ?? undefined)}
+              className="sr-only"
+            />
+            <button type="button" onClick={() => setR2Open(true)} className="btn btn-sm btn-quiet gap-1.5">
+              <Icon name="image" className="size-3.5" />
+              Add from R2
+            </button>
+            {r2Open && (
+              <R2Picker open={r2Open} onClose={() => setR2Open(false)} multiple={multiple} onPick={pickR2} />
+            )}
+          </>
+        )}
+        {err && <p className="rounded-lg bg-crit/10 px-2.5 py-1.5 text-micro text-crit ring-1 ring-crit/25">{err}</p>}
       </div>
     );
   }
@@ -241,6 +262,39 @@ function Field({ name, spec, value, onSet, weightsCount }: { name: string; spec:
         </select>
       );
     }
+    if (name === "disable_safety_checker") {
+      // Replicate's flag is inverted (true = moderation OFF). Show it as a
+      // plain "Content moderation" ON/OFF switch with the same wording as the
+      // other apps; ON sends disable_safety_checker=false.
+      // buildSubmitParams injects disable_safety_checker=true whenever the
+      // value is unset (overriding Replicate's own default of false). Mirror
+      // that exactly, otherwise the switch says ON while the run sends OFF.
+      const disabled = value === undefined ? true : Boolean(value);
+      const moderationOn = !disabled;
+      return (
+        <div className="grid gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-fine font-medium text-t1">Content moderation</span>
+            <Tip text="Setting this to OFF allows NSFW content." label="About content moderation" />
+          </div>
+          <button
+            type="button"
+            id={id}
+            role="switch"
+            aria-checked={moderationOn}
+            aria-label="Content moderation"
+            aria-describedby={describedBy}
+            onClick={() => onSet(!disabled)}
+            className={`btn w-full justify-between ${moderationOn ? "bg-accent/15 text-accent-soft ring-1 ring-accent/35" : "btn-ghost"}`}
+          >
+            <span className="tnum">{moderationOn ? "ON" : "OFF"}</span>
+            <span className={`relative h-5 w-9 rounded-full transition ${moderationOn ? "bg-accent" : "bg-s3"}`} aria-hidden="true">
+              <span className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${moderationOn ? "left-[1.1rem]" : "left-0.5"}`} />
+            </span>
+          </button>
+        </div>
+      );
+    }
     if (kind === "boolean") {
       const on = Boolean(value ?? spec.default);
       return (
@@ -298,11 +352,13 @@ function Field({ name, spec, value, onSet, weightsCount }: { name: string; spec:
   return (
     <div className="min-w-0">
       <div className="mb-1.5 flex items-center gap-1.5">
-        <label htmlFor={id} className="text-fine font-medium capitalize text-t1">
-          {text}
-        </label>
+        {name !== "disable_safety_checker" && (
+          <label htmlFor={id} className="text-fine font-medium capitalize text-t1">
+            {text}
+          </label>
+        )}
         {spec.required && <Badge tone="crit">Required</Badge>}
-        {spec.description && (
+        {spec.description && name !== "disable_safety_checker" && (
           <span className="@min-[30rem]/form:hidden">
             <Tip text={spec.description} label={`About ${text}`} />
           </span>
